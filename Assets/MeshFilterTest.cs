@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 [RequireComponent(typeof(MeshFilter))]
 public class MeshFilterTest : MonoBehaviour
@@ -73,6 +74,11 @@ public class MeshFilterTest : MonoBehaviour
             Gizmos.DrawLine(point2, point3);
             Gizmos.DrawLine(point3, point1);
 
+            if (classification == Classification.Straddle)
+            {
+                
+            }
+            
             if (classification == Classification.Back)
             {
                 newTriangles[i * 3 + 0] = 0;
@@ -83,6 +89,25 @@ public class MeshFilterTest : MonoBehaviour
 
         newMesh.triangles = newTriangles;
         GetComponent<MeshFilter>().sharedMesh = newMesh;
+    }
+
+    static Classification Split(Vector3 point1, Vector3 point2, Vector3 point3, Plane plane)
+    {
+        bool side1 = plane.GetSide(point1);
+        bool side2 = plane.GetSide(point2);
+        bool side3 = plane.GetSide(point3);
+
+        if (side1 && !side2 && !side3)
+        {
+            // 1 is forward
+            
+            
+            
+        }
+        else
+        {
+            throw new NotImplementedException();
+        }
     }
 
     static Classification Classify(Vector3 point1, Vector3 point2, Vector3 point3, Plane plane)
