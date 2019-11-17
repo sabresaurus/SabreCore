@@ -167,13 +167,15 @@ public class MeshFilterTest : MonoBehaviour
 
                     additionalTrianglesWith1NewVertices.Add(new NewTriangleWith1NewVertex()
                     {
-                        ExistingIndex1 = triangles[i * 3 + indexB],
-                        ExistingIndex2 = triangles[i * 3 + indexA],
+                        ExistingIndex1 = triangles[i * 3 + indexA],
+                        ExistingIndex2 = triangles[i * 3 + indexB],
 
                         NewVertexPosition1 = newPointA,
                         NewVertexUV1 = newUVA,
                         NewVertexNormal1 = newNormalA,
                         NewVertexTangent1 = newTangentA,
+
+                        Flipped = false,
                     });
 
                     DrawTriangle(pointB, pointA, newPointA);
@@ -193,6 +195,8 @@ public class MeshFilterTest : MonoBehaviour
                         NewVertexUV2 = newUVB,
                         NewVertexNormal2 = newNormalB,
                         NewVertexTangent2 = newTangentB,
+
+                        Flipped = false,
                     });
 
                     DrawTriangle(pointB, newPointA, newPointB);
@@ -210,6 +214,8 @@ public class MeshFilterTest : MonoBehaviour
                         NewVertexUV2 = newUVB,
                         NewVertexNormal2 = newNormalB,
                         NewVertexTangent2 = newTangentB,
+
+                        Flipped = true,
                     });
 
                     // DRAW SPLIT LINE
@@ -254,9 +260,18 @@ public class MeshFilterTest : MonoBehaviour
             normals[baseVertexCount + index] = newTriangleWith1NewVertex.NewVertexNormal1;
             tangents[baseVertexCount + index] = newTriangleWith1NewVertex.NewVertexTangent1;
 
-            triangles[baseTriangleCount + index * 3 + 0] = newTriangleWith1NewVertex.ExistingIndex1;
-            triangles[baseTriangleCount + index * 3 + 1] = newTriangleWith1NewVertex.ExistingIndex2;
-            triangles[baseTriangleCount + index * 3 + 2] = baseVertexCount + index;
+            if (newTriangleWith1NewVertex.Flipped)
+            {
+                triangles[baseTriangleCount + index * 3 + 2] = newTriangleWith1NewVertex.ExistingIndex1;
+                triangles[baseTriangleCount + index * 3 + 1] = newTriangleWith1NewVertex.ExistingIndex2;
+                triangles[baseTriangleCount + index * 3 + 0] = baseVertexCount + index;
+            }
+            else
+            {
+                triangles[baseTriangleCount + index * 3 + 0] = newTriangleWith1NewVertex.ExistingIndex1;
+                triangles[baseTriangleCount + index * 3 + 1] = newTriangleWith1NewVertex.ExistingIndex2;
+                triangles[baseTriangleCount + index * 3 + 2] = baseVertexCount + index;
+            }
         }
 
         int offset = additionalTrianglesWith1NewVertices.Count; // Offset to accomodate the new triangles we added
@@ -276,9 +291,18 @@ public class MeshFilterTest : MonoBehaviour
             normals[baseVertexCount + offset + index * 2 + 1] = newTriangleWith2NewVertex.NewVertexNormal2;
             tangents[baseVertexCount + offset + index * 2 + 1] = newTriangleWith2NewVertex.NewVertexTangent2;
 
-            triangles[baseTriangleCount + offset * 3 + index * 3 + 0] = newTriangleWith2NewVertex.ExistingIndex1;
-            triangles[baseTriangleCount + offset * 3 + index * 3 + 1] = baseVertexCount + offset + index * 2 + 0;
-            triangles[baseTriangleCount + offset * 3 + index * 3 + 2] = baseVertexCount + offset + index * 2 + 1;
+            if (newTriangleWith2NewVertex.Flipped)
+            {
+                triangles[baseTriangleCount + offset * 3 + index * 3 + 0] = newTriangleWith2NewVertex.ExistingIndex1;
+                triangles[baseTriangleCount + offset * 3 + index * 3 + 1] = baseVertexCount + offset + index * 2 + 0;
+                triangles[baseTriangleCount + offset * 3 + index * 3 + 2] = baseVertexCount + offset + index * 2 + 1;
+            }
+            else
+            {
+                triangles[baseTriangleCount + offset * 3 + index * 3 + 2] = newTriangleWith2NewVertex.ExistingIndex1;
+                triangles[baseTriangleCount + offset * 3 + index * 3 + 1] = baseVertexCount + offset + index * 2 + 0;
+                triangles[baseTriangleCount + offset * 3 + index * 3 + 0] = baseVertexCount + offset + index * 2 + 1;
+            }
         }
 
 

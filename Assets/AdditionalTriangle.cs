@@ -14,6 +14,8 @@ public struct NewTriangleWith1NewVertex
     public Vector2 NewVertexUV1;
     public Vector3 NewVertexNormal1;
     public Vector3 NewVertexTangent1;
+
+    public bool Flipped;
 }
 
 public struct NewTriangleWith2NewVertex
@@ -29,4 +31,6 @@ public struct NewTriangleWith2NewVertex
     public Vector2 NewVertexUV2;
     public Vector3 NewVertexNormal2;
     public Vector3 NewVertexTangent2;
+
+    public bool Flipped;
 }
