@@ -9,25 +9,28 @@ public class MeshFilterTestEditor : Editor
     {
         MeshFilterTest castTarget = (MeshFilterTest) target;
         Handles.matrix = castTarget.transform.localToWorldMatrix;
-
-        if (EditorTools.activeToolType.Name == "MoveTool")
+        
+        foreach (PlaneData planeData in castTarget.PlaneDatas)
         {
-            EditorGUI.BeginChangeCheck();
-            Vector3 newPosition = Handles.PositionHandle(castTarget.PointOnPlane, castTarget.PlaneOrientation);
-            if (EditorGUI.EndChangeCheck())
+            if (EditorTools.activeToolType.Name == "MoveTool")
             {
-                Undo.RecordObject(castTarget, "Change Look At Target Position");
-                castTarget.PointOnPlane = newPosition;
+                EditorGUI.BeginChangeCheck();
+                Vector3 newPosition = Handles.PositionHandle(planeData.PointOnPlane, planeData.PlaneOrientation);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    Undo.RecordObject(castTarget, "Change Look At Target Position");
+                    planeData.PointOnPlane = newPosition;
+                }
             }
-        }
-        else if (EditorTools.activeToolType.Name == "RotateTool")
-        {
-            EditorGUI.BeginChangeCheck();
-            Quaternion newRotation = Handles.RotationHandle(castTarget.PlaneOrientation, castTarget.PointOnPlane);
-            if (EditorGUI.EndChangeCheck())
+            else if (EditorTools.activeToolType.Name == "RotateTool")
             {
-                Undo.RecordObject(castTarget, "Change Look At Target Position");
-                castTarget.PlaneOrientation = newRotation;
+                EditorGUI.BeginChangeCheck();
+                Quaternion newRotation = Handles.RotationHandle(planeData.PlaneOrientation, planeData.PointOnPlane);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    Undo.RecordObject(castTarget, "Change Look At Target Position");
+                    planeData.PlaneOrientation = newRotation;
+                }
             }
         }
     }
