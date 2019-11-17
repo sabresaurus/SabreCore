@@ -5,11 +5,22 @@ using UnityEngine;
 [CustomEditor(typeof(MeshFilterTest)), CanEditMultipleObjects]
 public class MeshFilterTestEditor : Editor
 {
+    public override void OnInspectorGUI()
+    {
+        base.OnInspectorGUI();
+
+        MeshFilterTest castTarget = (MeshFilterTest) target;
+        foreach (PlaneData planeData in castTarget.PlaneDatas)
+        {
+            planeData.PlaneOrientation = Quaternion.Euler(EditorGUILayout.Vector3Field("Rotation", planeData.PlaneOrientation.eulerAngles));
+        }
+    }
+
     protected virtual void OnSceneGUI()
     {
         MeshFilterTest castTarget = (MeshFilterTest) target;
         Handles.matrix = castTarget.transform.localToWorldMatrix;
-        
+
         foreach (PlaneData planeData in castTarget.PlaneDatas)
         {
             if (EditorTools.activeToolType.Name == "MoveTool")
