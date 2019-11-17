@@ -38,7 +38,7 @@ public class MeshFilterTest : MonoBehaviour
         sourceMesh = GetComponent<MeshFilter>().sharedMesh;
     }
 
-    private void OnDrawGizmos()
+    private void OnDrawGizmosSelected()
     {
         SliceMesh(sourceMesh);
     }
@@ -52,6 +52,7 @@ public class MeshFilterTest : MonoBehaviour
         Gizmos.matrix = transform.localToWorldMatrix;
 
         var vertices = sourceMesh.vertices;
+        var uv = sourceMesh.uv;
 //        foreach (Vector3 vertex in vertices)
 //        {
 //            Gizmos.color = (plane.GetSide(vertex)) ? Color.blue : Color.green;
@@ -113,20 +114,22 @@ public class MeshFilterTest : MonoBehaviour
             {
                 float classificationSum = (classificationArray[index1] + classificationArray[index2] + classificationArray[index3]);
 
-                if (classificationSum == 1 + 1 - 1) // Two in front
+                if (classificationSum == 1 + 1 - 1 // Two in front
+                    || classificationSum == 1 - 1 - 1) // Two behind 
                 {
                     // Which out which vertex is isolated at the back of the plane
                     int isolatedIndex = -1;
                     for (int j = 0; j < 3; j++)
                     {
-                        if (classificationArray[triangles[i * 3 + j]] == -1)
+                        if (classificationArray[triangles[i * 3 + j]] != classificationSum)
                         {
-                            // This vertex is on the correct side, preserve it
                             isolatedIndex = j;
                             break;
                         }
                     }
 
+                    Debug.Assert(isolatedIndex >= 0 && isolatedIndex <= 2);
+                    
                     int indexA = (isolatedIndex + 1) % 3;
                     int indexB = (isolatedIndex + 2) % 3;
 
@@ -134,6 +137,10 @@ public class MeshFilterTest : MonoBehaviour
                     Vector3 isolatedPoint = vertices[triangles[i * 3 + isolatedIndex]];
                     Vector3 pointA = vertices[triangles[i * 3 + indexA]];
                     Vector3 pointB = vertices[triangles[i * 3 + indexB]];
+                    
+                    Vector2 isolatedUV = uv[triangles[i * 3 + isolatedIndex]];
+                    Vector2 uvA = uv[triangles[i * 3 + indexA]];
+                    Vector2 uvB = uv[triangles[i * 3 + indexB]];
 
                     // Calculate the normalized intersection along each edge from the isolated point
                     float interpolantA = GetPlaneIntersectionInterpolant(plane, isolatedPoint, pointA);
@@ -141,6 +148,9 @@ public class MeshFilterTest : MonoBehaviour
 
                     Vector3 newPointA = Vector3.Lerp(isolatedPoint, pointA, interpolantA);
                     Vector3 newPointB = Vector3.Lerp(isolatedPoint, pointB, interpolantB);
+                    
+                    Vector3 newUVA = Vector2.Lerp(isolatedUV, uvA, interpolantA);
+                    Vector3 newUVB = Vector2.Lerp(isolatedUV, uvB, interpolantB);
 
                     // ORIGINAL TRIANGLE
 //                    Gizmos.color = Color.green;
@@ -154,7 +164,7 @@ public class MeshFilterTest : MonoBehaviour
                         ExistingIndex1 = triangles[i * 3 + indexB],
                         ExistingIndex2 = triangles[i * 3 + indexA],
                         NewVertexPosition1 = newPointA,
-                        NewVertexUV1 = Vector2.zero // TODO: CALCULATE THIS
+                        NewVertexUV1 = newUVA,
                     });
 
                     DrawTriangle(pointB, pointA, newPointA);
@@ -165,20 +175,25 @@ public class MeshFilterTest : MonoBehaviour
                     {
                         ExistingIndex1 = triangles[i * 3 + indexB],
                         NewVertexPosition1 = newPointA,
-                        NewVertexUV1 = Vector2.zero, // TODO: CALCULATE THIS
+                        NewVertexUV1 = newUVA,
                         NewVertexPosition2 = newPointB,
-                        NewVertexUV2 = Vector2.zero, // TODO: CALCULATE THIS
+                        NewVertexUV2 = newUVB,
                     });
 
                     DrawTriangle(pointB, newPointA, newPointB);
+                    
+                    additionalTrianglesWith2NewVertices.Add(new NewTriangleWith2NewVertex()
+                    {
+                        ExistingIndex1 = triangles[i * 3 + isolatedIndex],
+                        NewVertexPosition1 = newPointA,
+                        NewVertexUV1 = newUVA,
+                        NewVertexPosition2 = newPointB,
+                        NewVertexUV2 = newUVB,
+                    });
 
                     // DRAW SPLIT LINE
                     Gizmos.color = Color.red;
                     Gizmos.DrawLine(newPointA, newPointB);
-                }
-                else if (classificationSum == 1 - 1 - 1) // Two behind
-                {
-//                    throw new NotSupportedException();
                 }
                 else
                 {
@@ -186,7 +201,7 @@ public class MeshFilterTest : MonoBehaviour
                 }
             }
 
-            if (classification != Classification.Front)
+            if (classification == Classification.Straddle)
             {    
                 triangles[i * 3 + 0] = 0;
                 triangles[i * 3 + 1] = 0;
@@ -204,6 +219,7 @@ public class MeshFilterTest : MonoBehaviour
 
         // Resize the vertex positions buffer to accomodate the additional triangles we're adding
         Array.Resize(ref vertices, baseVertexCount + additionalTrianglesWith1NewVertices.Count + additionalTrianglesWith2NewVertices.Count * 2);
+        Array.Resize(ref uv, baseVertexCount + additionalTrianglesWith1NewVertices.Count + additionalTrianglesWith2NewVertices.Count * 2);
 
         // Add in new triangles with one new vertex
         for (var index = 0; index < additionalTrianglesWith1NewVertices.Count; index++)
@@ -211,7 +227,8 @@ public class MeshFilterTest : MonoBehaviour
             NewTriangleWith1NewVertex newTriangleWith1NewVertex = additionalTrianglesWith1NewVertices[index];
 
             vertices[baseVertexCount + index] = newTriangleWith1NewVertex.NewVertexPosition1;
-            // TODO: Other vertex attributes, e.g. UV, Normal
+            uv[baseVertexCount + index] = newTriangleWith1NewVertex.NewVertexUV1;
+            // TODO: Other vertex attributes, e.g. Normal
 
             triangles[baseTriangleCount + index * 3 + 0] = newTriangleWith1NewVertex.ExistingIndex1;
             triangles[baseTriangleCount + index * 3 + 1] = newTriangleWith1NewVertex.ExistingIndex2;
@@ -227,7 +244,10 @@ public class MeshFilterTest : MonoBehaviour
 
             vertices[baseVertexCount + offset + index * 2 + 0] = newTriangleWith2NewVertex.NewVertexPosition1;
             vertices[baseVertexCount + offset + index * 2 + 1] = newTriangleWith2NewVertex.NewVertexPosition2;
-            // TODO: Other vertex attributes, e.g. UV, Normal
+            
+            uv[baseVertexCount + offset + index * 2 + 0] = newTriangleWith2NewVertex.NewVertexUV1;
+            uv[baseVertexCount + offset + index * 2 + 1] = newTriangleWith2NewVertex.NewVertexUV2;
+            // TODO: Other vertex attributes, e.g. Normal
 
             triangles[baseTriangleCount + offset*3 + index * 3 + 0] = newTriangleWith2NewVertex.ExistingIndex1;
             triangles[baseTriangleCount + offset*3 + index * 3 + 1] = baseVertexCount + offset + index * 2 + 0;
@@ -236,6 +256,7 @@ public class MeshFilterTest : MonoBehaviour
 
 
         newMesh.vertices = vertices;
+        newMesh.uv = uv;
         newMesh.triangles = triangles;
         GetComponent<MeshFilter>().sharedMesh = newMesh;
 
