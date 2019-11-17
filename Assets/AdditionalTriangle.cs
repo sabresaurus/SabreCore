@@ -12,6 +12,8 @@ public struct NewTriangleWith1NewVertex
 
     public Vector3 NewVertexPosition1;
     public Vector2 NewVertexUV1;
+    public Vector3 NewVertexNormal1;
+    public Vector3 NewVertexTangent1;
 }
 
 public struct NewTriangleWith2NewVertex
@@ -20,7 +22,11 @@ public struct NewTriangleWith2NewVertex
 
     public Vector3 NewVertexPosition1;
     public Vector2 NewVertexUV1;
-    
+    public Vector3 NewVertexNormal1;
+    public Vector3 NewVertexTangent1;
+
     public Vector3 NewVertexPosition2;
     public Vector2 NewVertexUV2;
+    public Vector3 NewVertexNormal2;
+    public Vector3 NewVertexTangent2;
 }
