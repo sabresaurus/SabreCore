@@ -69,12 +69,13 @@ public class MeshFilterTest : MonoBehaviour
         var uv = sourceMesh.uv;
         var normals = sourceMesh.normals;
         var tangents = sourceMesh.tangents;
+        int[] triangles = sourceMesh.triangles;
+        // Second copy so that we can modify triangles buffer while iterating through it
+        int[] newTriangles = sourceMesh.triangles;
 
-//        foreach (Vector3 vertex in vertices)
-//        {
-//            Gizmos.color = (plane.GetSide(vertex)) ? Color.blue : Color.green;
-//            Gizmos.DrawSphere(vertex, 0.01f);
-//        }
+
+        List<NewTriangleWith1NewVertex> additionalTrianglesWith1NewVertices = new List<NewTriangleWith1NewVertex>();
+        List<NewTriangleWith2NewVertex> additionalTrianglesWith2NewVertices = new List<NewTriangleWith2NewVertex>();
 
         NativeArray<float3> verticesNativeArray = new NativeArray<float3>(vertices.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
         for (int i = 0; i < vertices.Length; i++)
@@ -82,28 +83,32 @@ public class MeshFilterTest : MonoBehaviour
             verticesNativeArray[i] = vertices[i];
         }
 
-        foreach (PlaneData planeData in planeDatas)
+        NativeArray<float>[] classificationArrays = new NativeArray<float>[planeDatas.Length];
+
+        for (var planeIndex = 0; planeIndex < planeDatas.Length; planeIndex++)
         {
+            PlaneData planeData = planeDatas[planeIndex];
             var plane = CalculatePlane(planeData);
-            NativeArray<float> classificationArray = new NativeArray<float>(vertices.Length, Allocator.TempJob, NativeArrayOptions.ClearMemory);
+            classificationArrays[planeIndex] = new NativeArray<float>(vertices.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
 
             var jobData = new ClassifyJobs.ClassifyVertices()
             {
                 vertices = verticesNativeArray,
-                classificationResult = classificationArray,
+                classificationResult = classificationArrays[planeIndex],
                 planeDistance = plane.distance,
                 planeNormal = plane.normal
             };
 
             var handle = jobData.Schedule(vertices.Length, 128);
             handle.Complete();
+        }
 
-            int[] triangles = sourceMesh.triangles;
-
-
-            List<NewTriangleWith1NewVertex> additionalTrianglesWith1NewVertices = new List<NewTriangleWith1NewVertex>();
-            List<NewTriangleWith2NewVertex> additionalTrianglesWith2NewVertices = new List<NewTriangleWith2NewVertex>();
-
+        for (var planeIndex = 0; planeIndex < planeDatas.Length; planeIndex++)
+        {
+            PlaneData planeData = planeDatas[planeIndex];
+            var plane = CalculatePlane(planeData);
+            
+            var classificationArray = classificationArrays[planeIndex];
             for (int i = 0; i < triangles.Length / 3; i++)
             {
                 int index1 = triangles[i * 3 + 0];
@@ -243,93 +248,96 @@ public class MeshFilterTest : MonoBehaviour
                     }
                 }
 
-                if (classification == Classification.Straddle)
+//                if (classification == Classification.Straddle)
                 {
-                    triangles[i * 3 + 0] = 0;
-                    triangles[i * 3 + 1] = 0;
-                    triangles[i * 3 + 2] = 0;
+                    newTriangles[i * 3 + 0] = 0;
+                    newTriangles[i * 3 + 1] = 0;
+                    newTriangles[i * 3 + 2] = 0;
                 }
             }
-
-            int baseTriangleCount = triangles.Length; // Before additional triangles start getting taken into account
-            int baseVertexCount = vertices.Length; // Before additional triangles start getting taken into account
-
-            int additionalTriangleCount = additionalTrianglesWith1NewVertices.Count + additionalTrianglesWith2NewVertices.Count;
-
-            // Resize the triangle indices to accomodate the additional triangles we're adding
-            Array.Resize(ref triangles, baseTriangleCount + (additionalTriangleCount * 3));
-
-            // Resize the vertex attribute buffers to accomodate the additional triangles we're adding
-            Array.Resize(ref vertices, baseVertexCount + additionalTrianglesWith1NewVertices.Count + additionalTrianglesWith2NewVertices.Count * 2);
-            Array.Resize(ref uv, baseVertexCount + additionalTrianglesWith1NewVertices.Count + additionalTrianglesWith2NewVertices.Count * 2);
-            Array.Resize(ref normals, baseVertexCount + additionalTrianglesWith1NewVertices.Count + additionalTrianglesWith2NewVertices.Count * 2);
-            Array.Resize(ref tangents, baseVertexCount + additionalTrianglesWith1NewVertices.Count + additionalTrianglesWith2NewVertices.Count * 2);
-
-            // Add in new triangles with one new vertex
-            for (var index = 0; index < additionalTrianglesWith1NewVertices.Count; index++)
-            {
-                NewTriangleWith1NewVertex newTriangleWith1NewVertex = additionalTrianglesWith1NewVertices[index];
-
-                vertices[baseVertexCount + index] = newTriangleWith1NewVertex.NewVertexPosition1;
-                uv[baseVertexCount + index] = newTriangleWith1NewVertex.NewVertexUV1;
-                normals[baseVertexCount + index] = newTriangleWith1NewVertex.NewVertexNormal1;
-                tangents[baseVertexCount + index] = newTriangleWith1NewVertex.NewVertexTangent1;
-
-                if (newTriangleWith1NewVertex.Flipped)
-                {
-                    triangles[baseTriangleCount + index * 3 + 2] = newTriangleWith1NewVertex.ExistingIndex1;
-                    triangles[baseTriangleCount + index * 3 + 1] = newTriangleWith1NewVertex.ExistingIndex2;
-                    triangles[baseTriangleCount + index * 3 + 0] = baseVertexCount + index;
-                }
-                else
-                {
-                    triangles[baseTriangleCount + index * 3 + 0] = newTriangleWith1NewVertex.ExistingIndex1;
-                    triangles[baseTriangleCount + index * 3 + 1] = newTriangleWith1NewVertex.ExistingIndex2;
-                    triangles[baseTriangleCount + index * 3 + 2] = baseVertexCount + index;
-                }
-            }
-
-            int offset = additionalTrianglesWith1NewVertices.Count; // Offset to accomodate the new triangles we added
-
-            // Add in new triangles with two new vertices
-            for (var index = 0; index < additionalTrianglesWith2NewVertices.Count; index++)
-            {
-                NewTriangleWith2NewVertex newTriangleWith2NewVertex = additionalTrianglesWith2NewVertices[index];
-
-                vertices[baseVertexCount + offset + index * 2 + 0] = newTriangleWith2NewVertex.NewVertexPosition1;
-                uv[baseVertexCount + offset + index * 2 + 0] = newTriangleWith2NewVertex.NewVertexUV1;
-                normals[baseVertexCount + offset + index * 2 + 0] = newTriangleWith2NewVertex.NewVertexNormal1;
-                tangents[baseVertexCount + offset + index * 2 + 0] = newTriangleWith2NewVertex.NewVertexTangent1;
-
-                vertices[baseVertexCount + offset + index * 2 + 1] = newTriangleWith2NewVertex.NewVertexPosition2;
-                uv[baseVertexCount + offset + index * 2 + 1] = newTriangleWith2NewVertex.NewVertexUV2;
-                normals[baseVertexCount + offset + index * 2 + 1] = newTriangleWith2NewVertex.NewVertexNormal2;
-                tangents[baseVertexCount + offset + index * 2 + 1] = newTriangleWith2NewVertex.NewVertexTangent2;
-
-                if (newTriangleWith2NewVertex.Flipped)
-                {
-                    triangles[baseTriangleCount + offset * 3 + index * 3 + 0] = newTriangleWith2NewVertex.ExistingIndex1;
-                    triangles[baseTriangleCount + offset * 3 + index * 3 + 1] = baseVertexCount + offset + index * 2 + 0;
-                    triangles[baseTriangleCount + offset * 3 + index * 3 + 2] = baseVertexCount + offset + index * 2 + 1;
-                }
-                else
-                {
-                    triangles[baseTriangleCount + offset * 3 + index * 3 + 2] = newTriangleWith2NewVertex.ExistingIndex1;
-                    triangles[baseTriangleCount + offset * 3 + index * 3 + 1] = baseVertexCount + offset + index * 2 + 0;
-                    triangles[baseTriangleCount + offset * 3 + index * 3 + 0] = baseVertexCount + offset + index * 2 + 1;
-                }
-            }
-
-
-            newMesh.vertices = vertices;
-            newMesh.uv = uv;
-            newMesh.normals = normals;
-            newMesh.tangents = tangents;
-            newMesh.triangles = triangles;
-            GetComponent<MeshFilter>().sharedMesh = newMesh;
-
-            classificationArray.Dispose();
         }
+
+        for (var planeIndex = 0; planeIndex < planeDatas.Length; planeIndex++)
+        {
+            classificationArrays[planeIndex].Dispose();
+        }
+
+        int baseTriangleCount = triangles.Length; // Before additional triangles start getting taken into account
+        int baseVertexCount = vertices.Length; // Before additional triangles start getting taken into account
+
+        int additionalTriangleCount = additionalTrianglesWith1NewVertices.Count + additionalTrianglesWith2NewVertices.Count;
+
+        // Resize the triangle indices to accomodate the additional triangles we're adding
+        Array.Resize(ref newTriangles, baseTriangleCount + (additionalTriangleCount * 3));
+
+        // Resize the vertex attribute buffers to accomodate the additional triangles we're adding
+        Array.Resize(ref vertices, baseVertexCount + additionalTrianglesWith1NewVertices.Count + additionalTrianglesWith2NewVertices.Count * 2);
+        Array.Resize(ref uv, baseVertexCount + additionalTrianglesWith1NewVertices.Count + additionalTrianglesWith2NewVertices.Count * 2);
+        Array.Resize(ref normals, baseVertexCount + additionalTrianglesWith1NewVertices.Count + additionalTrianglesWith2NewVertices.Count * 2);
+        Array.Resize(ref tangents, baseVertexCount + additionalTrianglesWith1NewVertices.Count + additionalTrianglesWith2NewVertices.Count * 2);
+
+        // Add in new triangles with one new vertex
+        for (var index = 0; index < additionalTrianglesWith1NewVertices.Count; index++)
+        {
+            NewTriangleWith1NewVertex newTriangleWith1NewVertex = additionalTrianglesWith1NewVertices[index];
+
+            vertices[baseVertexCount + index] = newTriangleWith1NewVertex.NewVertexPosition1;
+            uv[baseVertexCount + index] = newTriangleWith1NewVertex.NewVertexUV1;
+            normals[baseVertexCount + index] = newTriangleWith1NewVertex.NewVertexNormal1;
+            tangents[baseVertexCount + index] = newTriangleWith1NewVertex.NewVertexTangent1;
+
+            if (newTriangleWith1NewVertex.Flipped)
+            {
+                newTriangles[baseTriangleCount + index * 3 + 2] = newTriangleWith1NewVertex.ExistingIndex1;
+                newTriangles[baseTriangleCount + index * 3 + 1] = newTriangleWith1NewVertex.ExistingIndex2;
+                newTriangles[baseTriangleCount + index * 3 + 0] = baseVertexCount + index;
+            }
+            else
+            {
+                newTriangles[baseTriangleCount + index * 3 + 0] = newTriangleWith1NewVertex.ExistingIndex1;
+                newTriangles[baseTriangleCount + index * 3 + 1] = newTriangleWith1NewVertex.ExistingIndex2;
+                newTriangles[baseTriangleCount + index * 3 + 2] = baseVertexCount + index;
+            }
+        }
+
+        int offset = additionalTrianglesWith1NewVertices.Count; // Offset to accomodate the new triangles we added
+
+        // Add in new triangles with two new vertices
+        for (var index = 0; index < additionalTrianglesWith2NewVertices.Count; index++)
+        {
+            NewTriangleWith2NewVertex newTriangleWith2NewVertex = additionalTrianglesWith2NewVertices[index];
+
+            vertices[baseVertexCount + offset + index * 2 + 0] = newTriangleWith2NewVertex.NewVertexPosition1;
+            uv[baseVertexCount + offset + index * 2 + 0] = newTriangleWith2NewVertex.NewVertexUV1;
+            normals[baseVertexCount + offset + index * 2 + 0] = newTriangleWith2NewVertex.NewVertexNormal1;
+            tangents[baseVertexCount + offset + index * 2 + 0] = newTriangleWith2NewVertex.NewVertexTangent1;
+
+            vertices[baseVertexCount + offset + index * 2 + 1] = newTriangleWith2NewVertex.NewVertexPosition2;
+            uv[baseVertexCount + offset + index * 2 + 1] = newTriangleWith2NewVertex.NewVertexUV2;
+            normals[baseVertexCount + offset + index * 2 + 1] = newTriangleWith2NewVertex.NewVertexNormal2;
+            tangents[baseVertexCount + offset + index * 2 + 1] = newTriangleWith2NewVertex.NewVertexTangent2;
+
+            if (newTriangleWith2NewVertex.Flipped)
+            {
+                newTriangles[baseTriangleCount + offset * 3 + index * 3 + 0] = newTriangleWith2NewVertex.ExistingIndex1;
+                newTriangles[baseTriangleCount + offset * 3 + index * 3 + 1] = baseVertexCount + offset + index * 2 + 0;
+                newTriangles[baseTriangleCount + offset * 3 + index * 3 + 2] = baseVertexCount + offset + index * 2 + 1;
+            }
+            else
+            {
+                newTriangles[baseTriangleCount + offset * 3 + index * 3 + 2] = newTriangleWith2NewVertex.ExistingIndex1;
+                newTriangles[baseTriangleCount + offset * 3 + index * 3 + 1] = baseVertexCount + offset + index * 2 + 0;
+                newTriangles[baseTriangleCount + offset * 3 + index * 3 + 0] = baseVertexCount + offset + index * 2 + 1;
+            }
+        }
+
+
+        newMesh.vertices = vertices;
+        newMesh.uv = uv;
+        newMesh.normals = normals;
+        newMesh.tangents = tangents;
+        newMesh.triangles = newTriangles;
+        GetComponent<MeshFilter>().sharedMesh = newMesh;
 
         verticesNativeArray.Dispose();
     }
