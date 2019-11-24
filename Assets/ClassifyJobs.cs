@@ -3,23 +3,26 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 
-public class ClassifyJobs
+namespace Sabresaurus.SabreSlice
 {
-    [BurstCompile]
-    public struct ClassifyVertices : IJobParallelFor
+    public class ClassifyJobs
     {
-        [ReadOnly] public NativeArray<float3> vertices;
-
-        [ReadOnly] public float3 planeNormal;
-        [ReadOnly] public float planeDistance;
-
-        public NativeArray<float> classificationResult;
-
-        public void Execute(int index)
+        [BurstCompile]
+        public struct ClassifyVertices : IJobParallelFor
         {
-            float3 point = vertices[index];
-            float foo = math.dot(planeNormal, point) + planeDistance;
-            classificationResult[index] = foo > 0.0f ? 1 : -1;
+            [ReadOnly] public NativeArray<float3> vertices;
+
+            [ReadOnly] public float3 planeNormal;
+            [ReadOnly] public float planeDistance;
+
+            public NativeArray<float> classificationResult;
+
+            public void Execute(int index)
+            {
+                float3 point = vertices[index];
+                float foo = math.dot(planeNormal, point) + planeDistance;
+                classificationResult[index] = foo > 0.0f ? 1 : -1;
+            }
         }
     }
 }
