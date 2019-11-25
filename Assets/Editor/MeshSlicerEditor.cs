@@ -12,7 +12,7 @@ namespace Sabresaurus.SabreSlice
             MeshSlicer castTarget = (MeshSlicer) target;
             Handles.matrix = castTarget.transform.localToWorldMatrix;
 
-            foreach (PlaneData planeData in castTarget.PlaneDatas)
+            foreach (MeshSlicer.PlaneData planeData in castTarget.PlaneDatas)
             {
                 if (EditorTools.activeToolType.Name == "RotateTool")
                 {

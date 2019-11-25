@@ -8,13 +8,62 @@ using UnityEngine;
 
 namespace Sabresaurus.SabreSlice
 {
+    [ExecuteInEditMode]
     [RequireComponent(typeof(MeshFilter))]
-    public class MeshSlicer : MonoBehaviour
+    public class MeshSlicer : MeshModifier
     {
-        [SerializeField] private PlaneData[] planeDatas = new PlaneData[1];
+        [Serializable]
+        public class PlaneData
+        {
+            [SerializeField] private Vector3 pointOnPlane;
+            [SerializeField] private Vector3 planeEuler;
+            [SerializeField, Range(0, 1)] private float inset = 0;
+            [SerializeField] private float offset = 0;
+
+            public Vector3 PointOnPlane
+            {
+                get => pointOnPlane;
+                set => pointOnPlane = value;
+            }
+
+            public Quaternion PlaneOrientation
+            {
+                get => Quaternion.Euler(planeEuler);
+                set => planeEuler = value.eulerAngles;
+            }
+
+            public float Inset
+            {
+                get => inset;
+                set => inset = value;
+            }
+
+            public float Offset
+            {
+                get => offset;
+                set => offset = value;
+            }
+            public Vector3 TransformedOffset => PlaneOrientation * Vector3.forward * offset;
+
+            public Plane CalculatePlane()
+            {
+                Vector3 normal = PlaneOrientation * Vector3.forward;
+
+                // Skip a sqrt here by using the parameterless constructor as we know normal is normalized
+                return new Plane()
+                {
+                    normal = normal,
+                    distance = -Vector3.Dot(normal, pointOnPlane)
+                };
+            }
+        }
+
+        [SerializeField] private PlaneData[] planeDatas = new PlaneData[2];
 
         [SerializeField] private bool showDebug = true;
-        [SerializeField] private Mesh sourceMesh;
+
+        [SerializeField, Min(0)] private float width;
+
 
         public PlaneData[] PlaneDatas
         {
@@ -22,14 +71,26 @@ namespace Sabresaurus.SabreSlice
             set => planeDatas = value;
         }
 
-        protected virtual void Reset()
-        {
-            sourceMesh = GetComponent<MeshFilter>().sharedMesh;
-        }
-
         private void OnDrawGizmosSelected()
         {
             SliceMesh(sourceMesh);
+        }
+
+        protected override void Reset()
+        {
+            base.Reset();
+
+            width = sourceMesh.bounds.size.x;
+        }
+
+        private void Update()
+        {
+            planeDatas[0].PlaneOrientation = Quaternion.Euler(0, 270, 0);
+            planeDatas[0].PointOnPlane = Vector3.left * sourceMesh.bounds.size.x * 0.5f * (1f - planeDatas[0].Inset);
+            planeDatas[0].Offset = (width - sourceMesh.bounds.size.x) / 2f;
+            planeDatas[1].PlaneOrientation = Quaternion.Euler(0, 90, 0);
+            planeDatas[1].PointOnPlane = Vector3.right * sourceMesh.bounds.size.x * 0.5f * (1f - planeDatas[1].Inset);
+            planeDatas[1].Offset = (width - sourceMesh.bounds.size.x) / 2f;
         }
 
         void SliceMesh(Mesh sourceMesh)
@@ -125,8 +186,8 @@ namespace Sabresaurus.SabreSlice
                             Vector3 pointB = vertices[triangles[i * 3 + indexB]];
 
                             // Calculate the normalized intersection along each edge from the isolated point
-                            float interpolantA = PlaneData.GetPlaneIntersectionInterpolant(plane, isolatedPoint, pointA);
-                            float interpolantB = PlaneData.GetPlaneIntersectionInterpolant(plane, isolatedPoint, pointB);
+                            float interpolantA = plane.GetPlaneIntersectionInterpolant(isolatedPoint, pointA);
+                            float interpolantB = plane.GetPlaneIntersectionInterpolant(isolatedPoint, pointB);
 
                             Vector3 newPointA = Vector3.Lerp(isolatedPoint, pointA, interpolantA);
                             Vector3 newPointB = Vector3.Lerp(isolatedPoint, pointB, interpolantB);
@@ -148,8 +209,8 @@ namespace Sabresaurus.SabreSlice
                             }
 
                             // NEW CLIPPED TRIANGLE
-                            if ( /*classificationSum == 1 + 1 - 1 // Two in front
-                            ||*/ classificationSum == 1 - 1 - 1) // Two behind
+                            if (classificationSum == 1 + 1 - 1 // Two in front
+                                || classificationSum == 1 - 1 - 1) // Two behind
                             {
                                 additionalTrianglesWith1NewVertices.Add(new NewTriangleWith1NewVertex()
                                 {
@@ -191,7 +252,7 @@ namespace Sabresaurus.SabreSlice
                             }
 
                             if (classificationSum == 1 + 1 - 1 // Two in front
-                            ) //|| classificationSum == 1 - 1 - 1) // Two behind
+                                || classificationSum == 1 - 1 - 1) // Two behind
                             {
                                 additionalTrianglesWith2NewVertices.Add(new NewTriangleWith2NewVertex()
                                 {
@@ -236,6 +297,9 @@ namespace Sabresaurus.SabreSlice
                 }
             }
 
+            float a = sourceMesh.bounds.size.x * 0.5f * (planeDatas[0].Inset);
+            float b = sourceMesh.bounds.size.x * 0.5f * (planeDatas[1].Inset);
+            float scale = (width - a - b) / (sourceMesh.bounds.size.x - a - b);
 
             for (int v = 0; v < vertices.Length; v++)
             {
@@ -253,7 +317,8 @@ namespace Sabresaurus.SabreSlice
                 if (allBehind)
                 {
                     var vertex = vertices[v];
-                    vertex.x *= 0.3f;
+                    
+                    vertex.x *= scale;
                     vertices[v] = vertex;
                 }
             }
@@ -344,7 +409,5 @@ namespace Sabresaurus.SabreSlice
                 classificationArrays[planeIndex].Dispose();
             }
         }
-
-        
     }
 }

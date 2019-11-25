@@ -11,7 +11,7 @@ namespace Sabresaurus.SabreSlice
         {
             Clipper castTarget = (Clipper) target;
             Handles.matrix = castTarget.transform.localToWorldMatrix;
-            PlaneData planeData = castTarget.PlaneData;
+            Clipper.PlaneData planeData = castTarget.PrimaryPlaneData;
             if (EditorTools.activeToolType.Name == "RotateTool")
             {
                 EditorGUI.BeginChangeCheck();

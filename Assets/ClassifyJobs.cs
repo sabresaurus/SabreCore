@@ -20,8 +20,8 @@ namespace Sabresaurus.SabreSlice
             public void Execute(int index)
             {
                 float3 point = vertices[index];
-                float foo = math.dot(planeNormal, point) + planeDistance;
-                classificationResult[index] = foo > 0.0f ? 1 : -1;
+                float dot = math.dot(planeNormal, point) + planeDistance;
+                classificationResult[index] = dot > 0f ? -1 : 1;
             }
         }
     }

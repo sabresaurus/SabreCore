@@ -8,37 +8,62 @@ using UnityEngine;
 
 namespace Sabresaurus.SabreSlice
 {
+    [ExecuteInEditMode]
     [RequireComponent(typeof(MeshFilter))]
-    public class Clipper : MonoBehaviour
+    public class Clipper : MeshModifier
     {
+        [Serializable]
+        public class PlaneData
+        {
+            [SerializeField] private Vector3 pointOnPlane;
+            [SerializeField] private Vector3 planeEuler;
+
+            public Vector3 PointOnPlane
+            {
+                get => pointOnPlane;
+                set => pointOnPlane = value;
+            }
+
+            public Quaternion PlaneOrientation
+            {
+                get => Quaternion.Euler(planeEuler);
+                set => planeEuler = value.eulerAngles;
+            }
+
+            public Plane CalculatePlane()
+            {
+                Vector3 normal = PlaneOrientation * Vector3.forward;
+
+                // Skip a sqrt here by using the parameterless constructor as we know normal is normalized
+                return new Plane()
+                {
+                    normal = normal,
+                    distance = -Vector3.Dot(normal, pointOnPlane)
+                };
+            }
+        }
+        
         [SerializeField] private PlaneData planeData = new PlaneData();
 
-        [SerializeField] private bool showDebug = true;
-        [SerializeField] private Mesh sourceMesh;
-
-        public PlaneData PlaneData
+        public PlaneData PrimaryPlaneData
         {
             get => planeData;
             set => planeData = value;
         }
-
-        protected virtual void Reset()
-        {
-            sourceMesh = GetComponent<MeshFilter>().sharedMesh;
-        }
-
-        private void OnDrawGizmosSelected()
+       
+        private void Update()
         {
             SliceMesh(sourceMesh);
         }
 
         void SliceMesh(Mesh sourceMesh)
         {
-            //sourceMesh.isReadable
-
+            if (!sourceMesh.isReadable)
+            {
+                Debug.LogError("Source Mesh must be marked readable in order to slice it", sourceMesh);
+            }
 
             Mesh newMesh = Instantiate(sourceMesh);
-            Gizmos.matrix = transform.localToWorldMatrix;
 
             var vertices = sourceMesh.vertices;
             var uv = sourceMesh.uv;
@@ -80,9 +105,6 @@ namespace Sabresaurus.SabreSlice
                 int index2 = triangles[i * 3 + 1];
                 int index3 = triangles[i * 3 + 2];
 
-                Vector3 point1 = vertices[index1];
-                Vector3 point2 = vertices[index2];
-                Vector3 point3 = vertices[index3];
                 Classification classification = Classifier.Classify(index1, index2, index3, classificationArray);
 
                 if (classification == Classification.Straddle)
@@ -114,8 +136,8 @@ namespace Sabresaurus.SabreSlice
                         Vector3 pointB = vertices[triangles[i * 3 + indexB]];
 
                         // Calculate the normalized intersection along each edge from the isolated point
-                        float interpolantA = PlaneData.GetPlaneIntersectionInterpolant(plane, isolatedPoint, pointA);
-                        float interpolantB = PlaneData.GetPlaneIntersectionInterpolant(plane, isolatedPoint, pointB);
+                        float interpolantA = plane.GetPlaneIntersectionInterpolant(isolatedPoint, pointA);
+                        float interpolantB = plane.GetPlaneIntersectionInterpolant(isolatedPoint, pointB);
 
                         Vector3 newPointA = Vector3.Lerp(isolatedPoint, pointA, interpolantA);
                         Vector3 newPointB = Vector3.Lerp(isolatedPoint, pointB, interpolantB);
@@ -129,16 +151,8 @@ namespace Sabresaurus.SabreSlice
                         Vector3 newTangentA = Vector3.Lerp(tangents[triangles[i * 3 + isolatedIndex]], tangents[triangles[i * 3 + indexA]], interpolantA);
                         Vector3 newTangentB = Vector3.Lerp(tangents[triangles[i * 3 + isolatedIndex]], tangents[triangles[i * 3 + indexB]], interpolantB);
 
-                        // ORIGINAL TRIANGLE
-                        if (showDebug)
-                        {
-                            Gizmos.color = Color.green;
-                            GizmoHelper.DrawTriangle(point1, point2, point3);
-                        }
-
                         // NEW CLIPPED TRIANGLE
-                        if ( classificationSum == 1 + 1 - 1 // Two in front
-                            /*|| classificationSum == 1 - 1 - 1*/) // Two behind
+                        if ( classificationSum == 1 + 1 - 1) // Two in front
                         {
                             additionalTrianglesWith1NewVertices.Add(new NewTriangleWith1NewVertex()
                             {
@@ -170,17 +184,9 @@ namespace Sabresaurus.SabreSlice
 
                                 Flipped = false,
                             });
-
-                            if (showDebug)
-                            {
-                                Gizmos.color = Color.blue;
-                                GizmoHelper.DrawTriangle(pointB, pointA, newPointA);
-                                GizmoHelper.DrawTriangle(pointB, newPointA, newPointB);
-                            }
                         }
 
-                        if (/*classificationSum == 1 + 1 - 1 // Two in front
-                            ||*/ classificationSum == 1 - 1 - 1) // Two behind
+                        if (classificationSum == 1 - 1 - 1) // Two behind
                         {
                             additionalTrianglesWith2NewVertices.Add(new NewTriangleWith2NewVertex()
                             {
@@ -198,14 +204,6 @@ namespace Sabresaurus.SabreSlice
 
                                 Flipped = true,
                             });
-                        }
-
-                        // DRAW SPLIT LINE
-//                        if (showDebug)
-                        {
-                            Gizmos.color = Color.red;
-                            // Untransformed
-                            Gizmos.DrawLine(newPointA, newPointB);
                         }
                     }
                     else
@@ -291,8 +289,6 @@ namespace Sabresaurus.SabreSlice
                     newTriangles[baseTriangleCount + offset * 3 + index * 3 + 0] = baseVertexCount + offset + index * 2 + 1;
                 }
             }
-
-            // TODO: Add support for NewTriangleWith3NewVertex
 
             newMesh.vertices = vertices;
             newMesh.uv = uv;

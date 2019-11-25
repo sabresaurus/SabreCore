@@ -10,5 +10,11 @@ namespace Sabresaurus.SabreSlice
             Gizmos.DrawLine(point2, point3);
             Gizmos.DrawLine(point3, point1);
         }
+
+//        public static void DrawBounds(Bounds bounds)
+//        {
+//            Gizmos.drawcub
+//        }
+        
     }
 }
