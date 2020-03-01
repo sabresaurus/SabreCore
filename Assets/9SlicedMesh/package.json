@@ -1,0 +1,11 @@
+{
+  "name": "com.sabresaurus.9slicedmesh",
+  "displayName":  "9 Sliced Mesh",
+  "version": "1.0.0",
+  "unity": "2019.3",
+  "description": "Mesh slicing and clipping tools",
+  "keywords": [ "Editor" ],
+  "category": "Tools",
+  "dependencies": {
+  }
+}

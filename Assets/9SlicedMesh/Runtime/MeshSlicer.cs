@@ -1,4 +1,5 @@
-﻿using System;
+﻿//#define SHOW_DEBUG_CLIPPING
+using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Jobs;
@@ -13,7 +14,7 @@ namespace Sabresaurus.NineSlicedMesh
     {
         [SerializeField] private SlicerAxisData[] axisDatas = new SlicerAxisData[3];
 
-        [SerializeField] private bool showDebug = false;
+        [SerializeField] private bool showInsetPlanes = true;
 
         [SerializeField] private Vector3 size;
 
@@ -44,6 +45,38 @@ namespace Sabresaurus.NineSlicedMesh
         private void OnDrawGizmosSelected()
         {
             SliceMesh(true);
+
+            if(showInsetPlanes)
+            {
+                Gizmos.color = Color.blue;
+                // Draw the split planes
+                for (int i = 0; i < 3; i++)
+                {
+                    Vector3 sizeCopy = size;
+                    sizeCopy[i] = 0;
+                    Vector3 axis = Vector3.zero;
+                    axis[i] = 1;
+                    Gizmos.DrawWireCube(
+                        sourceMesh.bounds.center +
+                        (-0.5f + 1f - axisDatas[i].GetInset(0)) * sourceMesh.bounds.size[i] * -axis +
+                        axisDatas[i].GetTransformedOffset(0),
+                        sizeCopy);
+                    Gizmos.DrawWireCube(
+                        sourceMesh.bounds.center +
+                        (-0.5f + 1f - axisDatas[i].GetInset(1)) * sourceMesh.bounds.size[i] * axis -
+                        axisDatas[i].GetTransformedOffset(0),
+                        sizeCopy);
+                }
+            }
+        }
+
+        private void OnValidate()
+        {
+            // Make sure the specified size is not smaller than the fixed inset areas to avoid obvious mesh overlap errors
+            for (int i = 0; i < 3; i++)
+            {
+                size[i] = Mathf.Max(size[i], sourceMesh.bounds.size[i] * axisDatas[i].TotalInsetProportion);
+            }
         }
 
         void SliceMesh(bool gizmosPass)
@@ -52,25 +85,24 @@ namespace Sabresaurus.NineSlicedMesh
                 return;
 
             Mesh activeMesh = Instantiate(sourceMesh);
+
             // Loop through each of the three axes, and apply slicing in each
             for (int i = 0; i < 3; i++)
             {
-                //SliceMesh(activeMesh, gizmosPass, axisDatas[i]);
+                SliceMeshOnAxis(activeMesh, gizmosPass, axisDatas[i]);
             }
 
-            SliceMesh(activeMesh, gizmosPass, axisDatas[0]);
-            //SliceMesh(activeMesh, gizmosPass, axisDatas[1]);
-            SliceMesh(activeMesh, gizmosPass, axisDatas[2]);
+            GetComponent<MeshFilter>().sharedMesh = activeMesh;
         }
 
-        void SliceMesh(Mesh activeMesh, bool gizmosPass, SlicerAxisData activeAxisData)
+        void SliceMeshOnAxis(Mesh activeMesh, bool gizmosPass, SlicerAxisData activeAxisData)
         {
             Gizmos.matrix = transform.localToWorldMatrix;
 
-            var vertices = activeMesh.vertices;
-            var uv = activeMesh.uv;
-            var normals = activeMesh.normals;
-            var tangents = activeMesh.tangents;
+            Vector3[] vertices = activeMesh.vertices;
+            Vector2[] uv = activeMesh.uv;
+            Vector3[] normals = activeMesh.normals;
+            Vector4[] tangents = activeMesh.tangents;
             int[] triangles = activeMesh.triangles;
             // Second copy so that we can modify triangles buffer while iterating through it
             int[] newTriangles = activeMesh.triangles;
@@ -80,6 +112,7 @@ namespace Sabresaurus.NineSlicedMesh
 
             NativeArray<float3> verticesNativeArray = new NativeArray<float3>(vertices.Length, Allocator.TempJob,
                 NativeArrayOptions.UninitializedMemory);
+
             for (int i = 0; i < vertices.Length; i++)
             {
                 verticesNativeArray[i] = vertices[i];
@@ -175,12 +208,14 @@ namespace Sabresaurus.NineSlicedMesh
                             Vector3 newTangentB = Vector3.Lerp(tangents[triangles[i * 3 + isolatedIndex]],
                                 tangents[triangles[i * 3 + indexB]], interpolantB);
 
+#if SHOW_DEBUG_CLIPPING                            
                             // ORIGINAL TRIANGLE
-                            if (showDebug && gizmosPass)
+                            if (gizmosPass)
                             {
                                 Gizmos.color = Color.green;
                                 GizmoHelper.DrawTriangle(point1, point2, point3);
                             }
+#endif                            
 
                             Vector3 transformedOffset = activeAxisData.GetTransformedOffset(planeIndex);
 
@@ -219,12 +254,14 @@ namespace Sabresaurus.NineSlicedMesh
                                     Flipped = false,
                                 });
 
-                                if (showDebug && gizmosPass)
+#if SHOW_DEBUG_CLIPPING                            
+                                if (gizmosPass)
                                 {
                                     Gizmos.color = Color.blue;
                                     GizmoHelper.DrawTriangle(pointB, pointA, newPointA);
                                     GizmoHelper.DrawTriangle(pointB, newPointA, newPointB);
                                 }
+#endif                                
                             }
 
                             if (classificationSum == 1 + 1 - 1 // Two in front
@@ -249,12 +286,12 @@ namespace Sabresaurus.NineSlicedMesh
                             }
 
                             // DRAW SPLIT LINE
-                            if (gizmosPass)
-                            {
-                                // Transformed
-                                Gizmos.color = Color.blue;
-                                Gizmos.DrawLine(newPointA + transformedOffset, newPointB + transformedOffset);
-                            }
+//                            if (gizmosPass)
+//                            {
+//                                // Transformed
+//                                Gizmos.color = Color.blue;
+//                                Gizmos.DrawLine(newPointA + transformedOffset, newPointB + transformedOffset);
+//                            }
                         }
                         else
                         {
@@ -262,7 +299,7 @@ namespace Sabresaurus.NineSlicedMesh
                         }
                     }
 
-                    if (triangleClassification == TriangleClassification.Straddle) 
+                    if (triangleClassification == TriangleClassification.Straddle)
                     {
                         // Zero out the indices for the straddling triangles as they are being replaced with new triangles
                         // Note: This is wasteful and in the future we should reuse these indices for one of the new triangles
@@ -273,10 +310,9 @@ namespace Sabresaurus.NineSlicedMesh
                 }
             }
 
-            float sourceInset1 = sourceMesh.bounds.size[activeAxisData.AxisIndex] * (activeAxisData.Inset1);
-            float sourceInset2 = sourceMesh.bounds.size[activeAxisData.AxisIndex] * (activeAxisData.Inset2);
-            float scale = (size[activeAxisData.AxisIndex] - sourceInset1 - sourceInset2) /
-                          (sourceMesh.bounds.size[activeAxisData.AxisIndex] - sourceInset1 - sourceInset2);
+            float sourceInset = sourceMesh.bounds.size[activeAxisData.AxisIndex] * (activeAxisData.TotalInsetProportion);
+            float scale = (size[activeAxisData.AxisIndex] - sourceInset) /
+                          (sourceMesh.bounds.size[activeAxisData.AxisIndex] - sourceInset);
 
             for (int v = 0; v < vertices.Length; v++)
             {
@@ -294,7 +330,9 @@ namespace Sabresaurus.NineSlicedMesh
                 {
                     var vertex = vertices[v];
 
+                    //vertex -= sourceMesh.bounds.center ;
                     vertex[activeAxisData.AxisIndex] *= scale;
+                    //vertex += sourceMesh.bounds.center ;
                     vertices[v] = vertex;
                 }
             }
@@ -388,7 +426,6 @@ namespace Sabresaurus.NineSlicedMesh
             activeMesh.normals = normals;
             activeMesh.tangents = tangents;
             activeMesh.triangles = newTriangles;
-            GetComponent<MeshFilter>().sharedMesh = activeMesh;
 
             // Cleanup the native arrays
             verticesNativeArray.Dispose();

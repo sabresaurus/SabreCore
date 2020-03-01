@@ -4,6 +4,7 @@ using UnityEngine.Serialization;
 
 namespace Sabresaurus.NineSlicedMesh
 {
+    // TODO: Most of this could probably be inlined into MeshSlicer
     [Serializable]
     public class SlicerAxisData
     {
@@ -15,9 +16,7 @@ namespace Sabresaurus.NineSlicedMesh
         [SerializeField, Range(0, 1)] private float inset2 = 0.1f;
         [SerializeField,HideInInspector] private float sizeOffset = 0;
 
-        public float Inset1 => inset1;
-
-        public float Inset2 => inset2;
+        public float TotalInsetProportion => inset1 + inset2;
 
         public float Offset
         {
@@ -27,6 +26,11 @@ namespace Sabresaurus.NineSlicedMesh
 
         public int AxisIndex => axisIndex;
 
+        public float GetInset(int planeIndex)
+        {
+            return planeIndex == 1 ? inset2 : inset1;
+        }
+        
         public Vector3 GetTransformedOffset(int planeIndex)
         {
             return planeIndex == 1 ? 1 * sizeOffset * planeDirection : -1 * sizeOffset * planeDirection;
@@ -49,8 +53,8 @@ namespace Sabresaurus.NineSlicedMesh
             planeDirection = Vector3.zero;
             planeDirection[axisIndex] = 1;
 
-            planeDistance0 = sourceBounds.center[axisIndex] + sourceBounds.size[axisIndex] * (-0.5f + 1f - inset1);
-            planeDistance1 = sourceBounds.center[axisIndex] + sourceBounds.size[axisIndex] * (-0.5f + 1f - inset2) * -1;
+            planeDistance0 = -sourceBounds.center[axisIndex] + sourceBounds.size[axisIndex] * (-0.5f + 1f - inset1);
+            planeDistance1 = -sourceBounds.center[axisIndex] + sourceBounds.size[axisIndex] * (-0.5f + 1f - inset2) * -1;
 
             sizeOffset = (size[axisIndex] - sourceBounds.size[axisIndex]) / 2f;
         }
