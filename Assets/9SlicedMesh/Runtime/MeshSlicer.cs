@@ -11,94 +11,12 @@ namespace Sabresaurus.NineSlicedMesh
     [RequireComponent(typeof(MeshFilter))]
     public class MeshSlicer : MeshModifier
     {
-        [Serializable]
-        public class PlaneData
-        {
-            [SerializeField] private Vector3 pointOnPlane;
-            [SerializeField] private Vector3 planeEuler;
-            [SerializeField, Range(0, 1)] private float inset = 0.1f;
-            [SerializeField] private float offset = 0;
-            [SerializeField] private int axisIndex = 0;
-
-            public Vector3 PointOnPlane
-            {
-                get => pointOnPlane;
-                set => pointOnPlane = value;
-            }
-
-            public Quaternion PlaneOrientation
-            {
-                get => Quaternion.Euler(planeEuler);
-                set => planeEuler = value.eulerAngles;
-            }
-
-            public float Inset
-            {
-                get => inset;
-                set => inset = value;
-            }
-
-            public int AxisIndex
-            {
-                get => axisIndex;
-                set => axisIndex = value;
-            }
-            
-            public float Offset
-            {
-                get => offset;
-                set => offset = value;
-            }
-            
-            public Vector3 TransformedOffset => PlaneOrientation * Vector3.forward * offset;
-
-            public Plane CalculatePlane()
-            {
-                Vector3 normal = PlaneOrientation * Vector3.forward;
-
-                // Skip a sqrt here by using the parameterless constructor as we know normal is normalized
-                return new Plane()
-                {
-                    normal = normal,
-                    distance = -Vector3.Dot(normal, pointOnPlane)
-                };
-            }
-
-            public void Configure(int axisIndex, Vector3 size, Bounds sourceBounds, bool reverse)
-            {
-                this.axisIndex = axisIndex;
-                Vector3 direction = Vector3.zero;
-                direction[axisIndex] = reverse ? 1 : -1;
-
-                if (direction == Vector3.up || direction == Vector3.down)
-                {
-                    PlaneOrientation = Quaternion.LookRotation(direction, Vector3.right);    
-                }
-                else
-                {
-                    PlaneOrientation = Quaternion.LookRotation(direction, Vector3.up);
-                }
-                pointOnPlane =sourceBounds.center+ sourceBounds.size[axisIndex] * (-0.5f + 1f - inset) * direction;
-                offset = (size[axisIndex] - sourceBounds.size[axisIndex]) / 2f;
-            }
-        }
-
-        [SerializeField] private PlaneData[] planeDatas = new PlaneData[6];
+        [SerializeField] private SlicerAxisData[] axisDatas = new SlicerAxisData[3];
 
         [SerializeField] private bool showDebug = false;
 
         [SerializeField] private Vector3 size;
 
-        public PlaneData[] PlaneDatas
-        {
-            get => planeDatas;
-            set => planeDatas = value;
-        }
-
-        private void OnDrawGizmosSelected()
-        {
-            SliceMesh(sourceMesh, true);
-        }
 
         protected override void Reset()
         {
@@ -115,53 +33,69 @@ namespace Sabresaurus.NineSlicedMesh
 
         private void Update()
         {
-            planeDatas[0 * 2 + 0].Configure(0, size, sourceMesh.bounds, false);
-            planeDatas[0 * 2 + 1].Configure(0, size, sourceMesh.bounds, true);
-//            for (int i = 0; i < 3; i++)
-//            {
-//                planeDatas[i * 2 + 0].Configure(i, size, sourceMesh.bounds, false);
-//                planeDatas[i * 2 + 1].Configure(i, size, sourceMesh.bounds, true);
-//            }
-            SliceMesh(sourceMesh, false);
+            for (int i = 0; i < 3; i++)
+            {
+                axisDatas[i].Configure(i, size, sourceMesh.bounds);
+            }
+
+            SliceMesh(false);
         }
 
-        void SliceMesh(Mesh sourceMesh, bool gizmosPass)
+        private void OnDrawGizmosSelected()
         {
-            //sourceMesh.isReadable
+            SliceMesh(true);
+        }
+
+        void SliceMesh(bool gizmosPass)
+        {
             if (sourceMesh == null)
                 return;
 
-            Mesh newMesh = Instantiate(sourceMesh);
+            Mesh activeMesh = Instantiate(sourceMesh);
+            // Loop through each of the three axes, and apply slicing in each
+            for (int i = 0; i < 3; i++)
+            {
+                //SliceMesh(activeMesh, gizmosPass, axisDatas[i]);
+            }
+
+            SliceMesh(activeMesh, gizmosPass, axisDatas[0]);
+            //SliceMesh(activeMesh, gizmosPass, axisDatas[1]);
+            SliceMesh(activeMesh, gizmosPass, axisDatas[2]);
+        }
+
+        void SliceMesh(Mesh activeMesh, bool gizmosPass, SlicerAxisData activeAxisData)
+        {
             Gizmos.matrix = transform.localToWorldMatrix;
 
-            var vertices = sourceMesh.vertices;
-            var uv = sourceMesh.uv;
-            var normals = sourceMesh.normals;
-            var tangents = sourceMesh.tangents;
-            int[] triangles = sourceMesh.triangles;
+            var vertices = activeMesh.vertices;
+            var uv = activeMesh.uv;
+            var normals = activeMesh.normals;
+            var tangents = activeMesh.tangents;
+            int[] triangles = activeMesh.triangles;
             // Second copy so that we can modify triangles buffer while iterating through it
-            int[] newTriangles = sourceMesh.triangles;
+            int[] newTriangles = activeMesh.triangles;
 
-            
             List<NewTriangleWith1NewVertex> additionalTrianglesWith1NewVertices = new List<NewTriangleWith1NewVertex>();
             List<NewTriangleWith2NewVertex> additionalTrianglesWith2NewVertices = new List<NewTriangleWith2NewVertex>();
 
-            NativeArray<float3> verticesNativeArray = new NativeArray<float3>(vertices.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            NativeArray<float3> verticesNativeArray = new NativeArray<float3>(vertices.Length, Allocator.TempJob,
+                NativeArrayOptions.UninitializedMemory);
             for (int i = 0; i < vertices.Length; i++)
             {
                 verticesNativeArray[i] = vertices[i];
             }
 
-            NativeArray<float>[] classificationArrays = new NativeArray<float>[planeDatas.Length];
+            NativeArray<int>[] classificationArrays = new NativeArray<int>[2];
 
             // Loop through all the planes and classify the source vertices relative to each plane
-            for (var planeIndex = 0; planeIndex < planeDatas.Length; planeIndex++)
+            for (var planeIndex = 0; planeIndex < 2; planeIndex++)
             {
-                PlaneData planeData = planeDatas[planeIndex];
-                Plane plane = planeData.CalculatePlane();
-                classificationArrays[planeIndex] = new NativeArray<float>(vertices.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+                Plane plane = activeAxisData.CalculatePlane(planeIndex);
 
-                var jobData = new ClassifyJobs.ClassifyVertices()
+                classificationArrays[planeIndex] = new NativeArray<int>(vertices.Length, Allocator.TempJob,
+                    NativeArrayOptions.UninitializedMemory);
+
+                var jobData = new Classifier.ClassifyVerticesAgainstPlane()
                 {
                     vertices = verticesNativeArray,
                     classificationResult = classificationArrays[planeIndex],
@@ -173,10 +107,9 @@ namespace Sabresaurus.NineSlicedMesh
                 handle.Complete(); // Block until all jobs are done
             }
 
-            for (var planeIndex = 0; planeIndex < planeDatas.Length; planeIndex++)
+            for (var planeIndex = 0; planeIndex < 2; planeIndex++)
             {
-                PlaneData planeData = planeDatas[planeIndex];
-                Plane plane = planeData.CalculatePlane();
+                Plane plane = activeAxisData.CalculatePlane(planeIndex);
 
                 var classificationArray = classificationArrays[planeIndex];
                 for (int i = 0; i < triangles.Length / 3; i++)
@@ -188,11 +121,13 @@ namespace Sabresaurus.NineSlicedMesh
                     Vector3 point1 = vertices[index1];
                     Vector3 point2 = vertices[index2];
                     Vector3 point3 = vertices[index3];
-                    TriangleClassification triangleClassification = Classifier.ClassifyTriangle(index1, index2, index3, classificationArray);
+                    TriangleClassification triangleClassification =
+                        Classifier.ClassifyTriangle(index1, index2, index3, classificationArray);
 
                     if (triangleClassification == TriangleClassification.Straddle)
                     {
-                        float classificationSum = (classificationArray[index1] + classificationArray[index2] + classificationArray[index3]);
+                        int classificationSum = (classificationArray[index1] + classificationArray[index2] +
+                                                 classificationArray[index3]);
 
                         if (classificationSum == 1 + 1 - 1 // Two in front
                             || classificationSum == 1 - 1 - 1) // Two behind 
@@ -225,14 +160,20 @@ namespace Sabresaurus.NineSlicedMesh
                             Vector3 newPointA = Vector3.Lerp(isolatedPoint, pointA, interpolantA);
                             Vector3 newPointB = Vector3.Lerp(isolatedPoint, pointB, interpolantB);
 
-                            Vector3 newUVA = Vector2.Lerp(uv[triangles[i * 3 + isolatedIndex]], uv[triangles[i * 3 + indexA]], interpolantA);
-                            Vector3 newUVB = Vector2.Lerp(uv[triangles[i * 3 + isolatedIndex]], uv[triangles[i * 3 + indexB]], interpolantB);
+                            Vector3 newUVA = Vector2.Lerp(uv[triangles[i * 3 + isolatedIndex]],
+                                uv[triangles[i * 3 + indexA]], interpolantA);
+                            Vector3 newUVB = Vector2.Lerp(uv[triangles[i * 3 + isolatedIndex]],
+                                uv[triangles[i * 3 + indexB]], interpolantB);
 
-                            Vector3 newNormalA = Vector3.Lerp(normals[triangles[i * 3 + isolatedIndex]], normals[triangles[i * 3 + indexA]], interpolantA);
-                            Vector3 newNormalB = Vector3.Lerp(normals[triangles[i * 3 + isolatedIndex]], normals[triangles[i * 3 + indexB]], interpolantB);
+                            Vector3 newNormalA = Vector3.Lerp(normals[triangles[i * 3 + isolatedIndex]],
+                                normals[triangles[i * 3 + indexA]], interpolantA);
+                            Vector3 newNormalB = Vector3.Lerp(normals[triangles[i * 3 + isolatedIndex]],
+                                normals[triangles[i * 3 + indexB]], interpolantB);
 
-                            Vector3 newTangentA = Vector3.Lerp(tangents[triangles[i * 3 + isolatedIndex]], tangents[triangles[i * 3 + indexA]], interpolantA);
-                            Vector3 newTangentB = Vector3.Lerp(tangents[triangles[i * 3 + isolatedIndex]], tangents[triangles[i * 3 + indexB]], interpolantB);
+                            Vector3 newTangentA = Vector3.Lerp(tangents[triangles[i * 3 + isolatedIndex]],
+                                tangents[triangles[i * 3 + indexA]], interpolantA);
+                            Vector3 newTangentB = Vector3.Lerp(tangents[triangles[i * 3 + isolatedIndex]],
+                                tangents[triangles[i * 3 + indexB]], interpolantB);
 
                             // ORIGINAL TRIANGLE
                             if (showDebug && gizmosPass)
@@ -240,6 +181,8 @@ namespace Sabresaurus.NineSlicedMesh
                                 Gizmos.color = Color.green;
                                 GizmoHelper.DrawTriangle(point1, point2, point3);
                             }
+
+                            Vector3 transformedOffset = activeAxisData.GetTransformedOffset(planeIndex);
 
                             // NEW CLIPPED TRIANGLE
                             if (classificationSum == 1 + 1 - 1 // Two in front
@@ -250,7 +193,7 @@ namespace Sabresaurus.NineSlicedMesh
                                     ExistingIndex1 = triangles[i * 3 + indexA],
                                     ExistingIndex2 = triangles[i * 3 + indexB],
 
-                                    NewVertexPosition1 = newPointA + planeData.TransformedOffset,
+                                    NewVertexPosition1 = newPointA + transformedOffset,
                                     NewVertexUV1 = newUVA,
                                     NewVertexNormal1 = newNormalA,
                                     NewVertexTangent1 = newTangentA,
@@ -263,12 +206,12 @@ namespace Sabresaurus.NineSlicedMesh
                                 {
                                     ExistingIndex1 = triangles[i * 3 + indexB],
 
-                                    NewVertexPosition1 = newPointA + planeData.TransformedOffset,
+                                    NewVertexPosition1 = newPointA + transformedOffset,
                                     NewVertexUV1 = newUVA,
                                     NewVertexNormal1 = newNormalA,
                                     NewVertexTangent1 = newTangentA,
 
-                                    NewVertexPosition2 = newPointB + planeData.TransformedOffset,
+                                    NewVertexPosition2 = newPointB + transformedOffset,
                                     NewVertexUV2 = newUVB,
                                     NewVertexNormal2 = newNormalB,
                                     NewVertexTangent2 = newTangentB,
@@ -291,12 +234,12 @@ namespace Sabresaurus.NineSlicedMesh
                                 {
                                     ExistingIndex1 = triangles[i * 3 + isolatedIndex],
 
-                                    NewVertexPosition1 = newPointA + planeData.TransformedOffset,
+                                    NewVertexPosition1 = newPointA + transformedOffset,
                                     NewVertexUV1 = newUVA,
                                     NewVertexNormal1 = newNormalA,
                                     NewVertexTangent1 = newTangentA,
 
-                                    NewVertexPosition2 = newPointB + planeData.TransformedOffset,
+                                    NewVertexPosition2 = newPointB + transformedOffset,
                                     NewVertexUV2 = newUVB,
                                     NewVertexNormal2 = newNormalB,
                                     NewVertexTangent2 = newTangentB,
@@ -306,28 +249,23 @@ namespace Sabresaurus.NineSlicedMesh
                             }
 
                             // DRAW SPLIT LINE
-//                        if (showDebug)
+                            if (gizmosPass)
                             {
-                                // Untransformed
-//                                Gizmos.color = Color.red;
-//                                Gizmos.DrawLine(newPointA, newPointB);
-
                                 // Transformed
-                                if(gizmosPass)
-                                {
-                                    Gizmos.color = Color.blue;
-                                    Gizmos.DrawLine(newPointA + planeData.TransformedOffset, newPointB + planeData.TransformedOffset);
-                                }
+                                Gizmos.color = Color.blue;
+                                Gizmos.DrawLine(newPointA + transformedOffset, newPointB + transformedOffset);
                             }
                         }
                         else
                         {
-                            throw new NotSupportedException();
+                            throw new NotSupportedException("Unexpected and unhandled classification sum");
                         }
                     }
 
-                    if (triangleClassification == TriangleClassification.Straddle)
+                    if (triangleClassification == TriangleClassification.Straddle) 
                     {
+                        // Zero out the indices for the straddling triangles as they are being replaced with new triangles
+                        // Note: This is wasteful and in the future we should reuse these indices for one of the new triangles
                         newTriangles[i * 3 + 0] = 0;
                         newTriangles[i * 3 + 1] = 0;
                         newTriangles[i * 3 + 2] = 0;
@@ -335,21 +273,19 @@ namespace Sabresaurus.NineSlicedMesh
                 }
             }
 
-
-            int HACK_axisIndex = planeDatas[0].AxisIndex; // TODO: Replace
-            float a = sourceMesh.bounds.size[planeDatas[0].AxisIndex] * (planeDatas[0].Inset);
-            float b = sourceMesh.bounds.size[planeDatas[1].AxisIndex] * (planeDatas[1].Inset);
-            float scale = (size[HACK_axisIndex] - a - b) / (sourceMesh.bounds.size[HACK_axisIndex] - a - b);
+            float sourceInset1 = sourceMesh.bounds.size[activeAxisData.AxisIndex] * (activeAxisData.Inset1);
+            float sourceInset2 = sourceMesh.bounds.size[activeAxisData.AxisIndex] * (activeAxisData.Inset2);
+            float scale = (size[activeAxisData.AxisIndex] - sourceInset1 - sourceInset2) /
+                          (sourceMesh.bounds.size[activeAxisData.AxisIndex] - sourceInset1 - sourceInset2);
 
             for (int v = 0; v < vertices.Length; v++)
             {
                 bool allBehind = true;
-                for (var planeIndex = 0; planeIndex < planeDatas.Length; planeIndex++)
+                for (var planeIndex = 0; planeIndex < 2; planeIndex++)
                 {
-                    var planeData = planeDatas[planeIndex];
                     if (classificationArrays[planeIndex][v] == -1)
                     {
-                        vertices[v] += planeData.TransformedOffset;
+                        vertices[v] += activeAxisData.GetTransformedOffset(planeIndex);
                         allBehind = false;
                     }
                 }
@@ -357,8 +293,8 @@ namespace Sabresaurus.NineSlicedMesh
                 if (allBehind)
                 {
                     var vertex = vertices[v];
-                    
-                    vertex[HACK_axisIndex] *= scale;
+
+                    vertex[activeAxisData.AxisIndex] *= scale;
                     vertices[v] = vertex;
                 }
             }
@@ -366,16 +302,25 @@ namespace Sabresaurus.NineSlicedMesh
             int baseTriangleCount = triangles.Length; // Before additional triangles start getting taken into account
             int baseVertexCount = vertices.Length; // Before additional triangles start getting taken into account
 
-            int additionalTriangleCount = additionalTrianglesWith1NewVertices.Count + additionalTrianglesWith2NewVertices.Count;
+            int additionalTriangleCount =
+                additionalTrianglesWith1NewVertices.Count + additionalTrianglesWith2NewVertices.Count;
 
             // Resize the triangle indices to accomodate the additional triangles we're adding
             Array.Resize(ref newTriangles, baseTriangleCount + (additionalTriangleCount * 3));
 
             // Resize the vertex attribute buffers to accomodate the additional triangles we're adding
-            Array.Resize(ref vertices, baseVertexCount + additionalTrianglesWith1NewVertices.Count + additionalTrianglesWith2NewVertices.Count * 2);
-            Array.Resize(ref uv, baseVertexCount + additionalTrianglesWith1NewVertices.Count + additionalTrianglesWith2NewVertices.Count * 2);
-            Array.Resize(ref normals, baseVertexCount + additionalTrianglesWith1NewVertices.Count + additionalTrianglesWith2NewVertices.Count * 2);
-            Array.Resize(ref tangents, baseVertexCount + additionalTrianglesWith1NewVertices.Count + additionalTrianglesWith2NewVertices.Count * 2);
+            Array.Resize(ref vertices,
+                baseVertexCount + additionalTrianglesWith1NewVertices.Count +
+                additionalTrianglesWith2NewVertices.Count * 2);
+            Array.Resize(ref uv,
+                baseVertexCount + additionalTrianglesWith1NewVertices.Count +
+                additionalTrianglesWith2NewVertices.Count * 2);
+            Array.Resize(ref normals,
+                baseVertexCount + additionalTrianglesWith1NewVertices.Count +
+                additionalTrianglesWith2NewVertices.Count * 2);
+            Array.Resize(ref tangents,
+                baseVertexCount + additionalTrianglesWith1NewVertices.Count +
+                additionalTrianglesWith2NewVertices.Count * 2);
 
             // Add in new triangles with one new vertex
             for (var index = 0; index < additionalTrianglesWith1NewVertices.Count; index++)
@@ -420,31 +365,35 @@ namespace Sabresaurus.NineSlicedMesh
 
                 if (newTriangleWith2NewVertex.Flipped)
                 {
-                    newTriangles[baseTriangleCount + offset * 3 + index * 3 + 0] = newTriangleWith2NewVertex.ExistingIndex1;
-                    newTriangles[baseTriangleCount + offset * 3 + index * 3 + 1] = baseVertexCount + offset + index * 2 + 0;
-                    newTriangles[baseTriangleCount + offset * 3 + index * 3 + 2] = baseVertexCount + offset + index * 2 + 1;
+                    newTriangles[baseTriangleCount + offset * 3 + index * 3 + 0] =
+                        newTriangleWith2NewVertex.ExistingIndex1;
+                    newTriangles[baseTriangleCount + offset * 3 + index * 3 + 1] =
+                        baseVertexCount + offset + index * 2 + 0;
+                    newTriangles[baseTriangleCount + offset * 3 + index * 3 + 2] =
+                        baseVertexCount + offset + index * 2 + 1;
                 }
                 else
                 {
-                    newTriangles[baseTriangleCount + offset * 3 + index * 3 + 2] = newTriangleWith2NewVertex.ExistingIndex1;
-                    newTriangles[baseTriangleCount + offset * 3 + index * 3 + 1] = baseVertexCount + offset + index * 2 + 0;
-                    newTriangles[baseTriangleCount + offset * 3 + index * 3 + 0] = baseVertexCount + offset + index * 2 + 1;
+                    newTriangles[baseTriangleCount + offset * 3 + index * 3 + 2] =
+                        newTriangleWith2NewVertex.ExistingIndex1;
+                    newTriangles[baseTriangleCount + offset * 3 + index * 3 + 1] =
+                        baseVertexCount + offset + index * 2 + 0;
+                    newTriangles[baseTriangleCount + offset * 3 + index * 3 + 0] =
+                        baseVertexCount + offset + index * 2 + 1;
                 }
             }
 
-            // TODO: Add support for NewTriangleWith3NewVertex
+            activeMesh.vertices = vertices;
+            activeMesh.uv = uv;
+            activeMesh.normals = normals;
+            activeMesh.tangents = tangents;
+            activeMesh.triangles = newTriangles;
+            GetComponent<MeshFilter>().sharedMesh = activeMesh;
 
-            newMesh.vertices = vertices;
-            newMesh.uv = uv;
-            newMesh.normals = normals;
-            newMesh.tangents = tangents;
-            newMesh.triangles = newTriangles;
-            GetComponent<MeshFilter>().sharedMesh = newMesh;
-
+            // Cleanup the native arrays
             verticesNativeArray.Dispose();
 
-
-            for (var planeIndex = 0; planeIndex < planeDatas.Length; planeIndex++)
+            for (var planeIndex = 0; planeIndex < 2; planeIndex++)
             {
                 classificationArrays[planeIndex].Dispose();
             }

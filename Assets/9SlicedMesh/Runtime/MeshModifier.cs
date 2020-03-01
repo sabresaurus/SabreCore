@@ -6,6 +6,9 @@ using UnityEditor;
 
 namespace Sabresaurus.NineSlicedMesh
 {
+    /// <summary>
+    /// Base class for mesh modification components that apply changes to a source mesh
+    /// </summary>
     [RequireComponent(typeof(MeshFilter))]
     public abstract class MeshModifier : MonoBehaviour
     {

@@ -1,13 +1,14 @@
 using System;
 using System.Collections.Generic;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 
 namespace Sabresaurus.NineSlicedMesh
 {
+    // Attach this to a MeshFilter to clip it against a plane, either defined as a rotation/distance or by specifying a
+    // Transform to clip with
     [ExecuteInEditMode]
     [RequireComponent(typeof(MeshFilter))]
     public class Clipper : MeshModifier
@@ -44,9 +45,9 @@ namespace Sabresaurus.NineSlicedMesh
         }
         
         [SerializeField] private PlaneData planeData = new PlaneData();
-        [SerializeField] private Transform clipper = null;
+        [SerializeField] private Transform clipperTransform = null;
 
-        public bool HasClipperTransform => clipper != null;
+        public bool HasClipperTransform => clipperTransform != null;
 
         public PlaneData PrimaryPlaneData
         {
@@ -56,12 +57,11 @@ namespace Sabresaurus.NineSlicedMesh
 
         public void Update()
         {
-            if (clipper != null)
+            if (clipperTransform != null) // If there's a clipper object, use that to drive the clip plane
             {
-                planeData.PointOnPlane = transform.InverseTransformPoint(clipper.position);
-                planeData.PlaneOrientation = transform.InverseTransformRotation(clipper.rotation);
+                planeData.PointOnPlane = transform.InverseTransformPoint(clipperTransform.position);
+                planeData.PlaneOrientation = transform.InverseTransformRotation(clipperTransform.rotation);
             }
-
 
             ClipMesh(sourceMesh);
         }
@@ -93,12 +93,12 @@ namespace Sabresaurus.NineSlicedMesh
                 verticesNativeArray[i] = vertices[i];
             }
 
-            NativeArray<float> classificationArray = new NativeArray<float>(vertices.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            NativeArray<int> classificationArray = new NativeArray<int>(vertices.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
 
             // Classify the source vertices relative to the plane
             Plane plane = planeData.CalculatePlane();
 
-            var jobData = new ClassifyJobs.ClassifyVertices()
+            var jobData = new Classifier.ClassifyVerticesAgainstPlane()
             {
                 vertices = verticesNativeArray,
                 classificationResult = classificationArray,
