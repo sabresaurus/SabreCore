@@ -19,9 +19,6 @@ namespace Sabresaurus.NineSlicedMesh
 
         [SerializeField] private Vector3 size;
 
-        [SerializeField] private Vector3 scaleOffset = Vector3.zero;
-
-
         protected override void Reset()
         {
             base.Reset();
@@ -32,6 +29,7 @@ namespace Sabresaurus.NineSlicedMesh
         public void ResetSize()
         {
             size = sourceMesh.bounds.size;
+            Update();
         }
 
         private void Update()
@@ -319,8 +317,10 @@ namespace Sabresaurus.NineSlicedMesh
                                 (activeAxisData.TotalInsetProportion);
             float scale = (size[activeAxisData.AxisIndex] - sourceInset) /
                           (sourceMesh.bounds.size[activeAxisData.AxisIndex] - sourceInset);
-            scaleOffset = axis * (activeAxisData.GetInset(0) + (1f - activeAxisData.GetInset(1))) / 2f *
-                          sourceMesh.bounds.size[activeAxisData.AxisIndex];
+            Vector3 scaleOffset = axis * (activeAxisData.GetInset(0) *
+                                          sourceMesh.bounds.size[activeAxisData.AxisIndex] - (activeAxisData.GetInset(1)) *
+                                          sourceMesh.bounds.size[activeAxisData.AxisIndex]) / 2f
+                                  + sourceMesh.bounds.center;
 
             for (int v = 0; v < vertices.Length; v++)
             {
