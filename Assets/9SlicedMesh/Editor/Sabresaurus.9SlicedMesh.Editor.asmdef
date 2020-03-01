@@ -1,0 +1,17 @@
+{
+    "name": "Sabresaurus.9SlicedMesh.Editor",
+    "references": [
+        "Sabresaurus.9SlicedMesh"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

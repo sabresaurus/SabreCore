@@ -6,7 +6,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 
-namespace Sabresaurus.SabreSlice
+namespace Sabresaurus.NineSlicedMesh
 {
     [ExecuteInEditMode]
     [RequireComponent(typeof(MeshFilter))]

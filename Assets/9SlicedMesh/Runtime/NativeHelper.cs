@@ -3,7 +3,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
 
-namespace Sabresaurus.SabreSlice
+namespace Sabresaurus.NineSlicedMesh
 {
     public static class NativeHelper
     {

@@ -1,6 +1,6 @@
 using Unity.Collections;
 
-namespace Sabresaurus.SabreSlice
+namespace Sabresaurus.NineSlicedMesh
 {
     public enum TriangleClassification
     {

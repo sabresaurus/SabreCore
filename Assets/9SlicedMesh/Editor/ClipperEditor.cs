@@ -2,7 +2,7 @@ using UnityEditor;
 using UnityEditor.EditorTools;
 using UnityEngine;
 
-namespace Sabresaurus.SabreSlice
+namespace Sabresaurus.NineSlicedMesh
 {
     [CustomEditor(typeof(Clipper))]
     public class ClipperEditor : Editor

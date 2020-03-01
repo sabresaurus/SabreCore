@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Sabresaurus.SabreSlice
+namespace Sabresaurus.NineSlicedMesh
 {
     // When a non-linear triangle is split, the generated triangles (two or three triangles) will each reuse one or two
     // vertices from the original triangle. These two structs allow us to track the existing vertices as indices

@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEditor;
 #endif
 
-namespace Sabresaurus.SabreSlice
+namespace Sabresaurus.NineSlicedMesh
 {
     [RequireComponent(typeof(MeshFilter))]
     public abstract class MeshModifier : MonoBehaviour
