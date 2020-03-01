@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
@@ -17,7 +16,7 @@ namespace Sabresaurus.SabreSlice
         {
             [SerializeField] private Vector3 pointOnPlane;
             [SerializeField] private Vector3 planeEuler;
-            [SerializeField, Range(0, 1)] private float inset = 0;
+            [SerializeField, Range(0, 1)] private float inset = 0.1f;
             [SerializeField] private float offset = 0;
             [SerializeField] private int axisIndex = 0;
 
@@ -79,14 +78,14 @@ namespace Sabresaurus.SabreSlice
                 {
                     PlaneOrientation = Quaternion.LookRotation(direction, Vector3.up);
                 }
-                pointOnPlane = sourceBounds.size[axisIndex] * (-0.5f + 1f - inset) * direction;
+                pointOnPlane =sourceBounds.center+ sourceBounds.size[axisIndex] * (-0.5f + 1f - inset) * direction;
                 offset = (size[axisIndex] - sourceBounds.size[axisIndex]) / 2f;
             }
         }
 
-        [SerializeField] private PlaneData[] planeDatas = new PlaneData[2];
+        [SerializeField] private PlaneData[] planeDatas = new PlaneData[6];
 
-        [SerializeField] private bool showDebug = true;
+        [SerializeField] private bool showDebug = false;
 
         [SerializeField] private Vector3 size;
 
@@ -98,29 +97,39 @@ namespace Sabresaurus.SabreSlice
 
         private void OnDrawGizmosSelected()
         {
-            SliceMesh(sourceMesh);
+            SliceMesh(sourceMesh, true);
         }
 
         protected override void Reset()
         {
             base.Reset();
 
+            ResetSize();
+        }
+
+        [ContextMenu("Reset Size")]
+        void ResetSize()
+        {
             size = sourceMesh.bounds.size;
         }
 
         private void Update()
         {
-//            planeDatas[0].Configure(0, size, sourceMesh.bounds.size, false);
-//            planeDatas[1].Configure(0, size, sourceMesh.bounds.size, true);
-            
-            planeDatas[0].Configure(1, size, sourceMesh.bounds, false);
-            planeDatas[1].Configure(1, size, sourceMesh.bounds, true);
+            planeDatas[0 * 2 + 0].Configure(0, size, sourceMesh.bounds, false);
+            planeDatas[0 * 2 + 1].Configure(0, size, sourceMesh.bounds, true);
+//            for (int i = 0; i < 3; i++)
+//            {
+//                planeDatas[i * 2 + 0].Configure(i, size, sourceMesh.bounds, false);
+//                planeDatas[i * 2 + 1].Configure(i, size, sourceMesh.bounds, true);
+//            }
+            SliceMesh(sourceMesh, false);
         }
 
-        void SliceMesh(Mesh sourceMesh)
+        void SliceMesh(Mesh sourceMesh, bool gizmosPass)
         {
             //sourceMesh.isReadable
-
+            if (sourceMesh == null)
+                return;
 
             Mesh newMesh = Instantiate(sourceMesh);
             Gizmos.matrix = transform.localToWorldMatrix;
@@ -226,7 +235,7 @@ namespace Sabresaurus.SabreSlice
                             Vector3 newTangentB = Vector3.Lerp(tangents[triangles[i * 3 + isolatedIndex]], tangents[triangles[i * 3 + indexB]], interpolantB);
 
                             // ORIGINAL TRIANGLE
-                            if (showDebug)
+                            if (showDebug && gizmosPass)
                             {
                                 Gizmos.color = Color.green;
                                 GizmoHelper.DrawTriangle(point1, point2, point3);
@@ -267,7 +276,7 @@ namespace Sabresaurus.SabreSlice
                                     Flipped = false,
                                 });
 
-                                if (showDebug)
+                                if (showDebug && gizmosPass)
                                 {
                                     Gizmos.color = Color.blue;
                                     GizmoHelper.DrawTriangle(pointB, pointA, newPointA);
@@ -304,8 +313,11 @@ namespace Sabresaurus.SabreSlice
 //                                Gizmos.DrawLine(newPointA, newPointB);
 
                                 // Transformed
-                                Gizmos.color = Color.blue;
-                                Gizmos.DrawLine(newPointA + planeData.TransformedOffset, newPointB + planeData.TransformedOffset);
+                                if(gizmosPass)
+                                {
+                                    Gizmos.color = Color.blue;
+                                    Gizmos.DrawLine(newPointA + planeData.TransformedOffset, newPointB + planeData.TransformedOffset);
+                                }
                             }
                         }
                         else
