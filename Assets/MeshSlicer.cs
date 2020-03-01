@@ -62,8 +62,7 @@ namespace Sabresaurus.SabreSlice
 
         [SerializeField] private bool showDebug = true;
 
-        [SerializeField, Min(0)] private float width;
-
+        [SerializeField] private Vector3 size;
 
         public PlaneData[] PlaneDatas
         {
@@ -80,17 +79,17 @@ namespace Sabresaurus.SabreSlice
         {
             base.Reset();
 
-            width = sourceMesh.bounds.size.x;
+            size = sourceMesh.bounds.size;
         }
 
         private void Update()
         {
             planeDatas[0].PlaneOrientation = Quaternion.Euler(0, 270, 0);
-            planeDatas[0].PointOnPlane = Vector3.left * sourceMesh.bounds.size.x * 0.5f * (1f - planeDatas[0].Inset);
-            planeDatas[0].Offset = (width - sourceMesh.bounds.size.x) / 2f;
+            planeDatas[0].PointOnPlane = sourceMesh.bounds.size.x * (-0.5f + 1f - planeDatas[0].Inset) * Vector3.left;
+            planeDatas[0].Offset = (size.x - sourceMesh.bounds.size.x) / 2f;
             planeDatas[1].PlaneOrientation = Quaternion.Euler(0, 90, 0);
-            planeDatas[1].PointOnPlane = Vector3.right * sourceMesh.bounds.size.x * 0.5f * (1f - planeDatas[1].Inset);
-            planeDatas[1].Offset = (width - sourceMesh.bounds.size.x) / 2f;
+            planeDatas[1].PointOnPlane = sourceMesh.bounds.size.x * (-0.5f + 1f - planeDatas[1].Inset) * Vector3.right;
+            planeDatas[1].Offset = (size.x - sourceMesh.bounds.size.x) / 2f;
         }
 
         void SliceMesh(Mesh sourceMesh)
@@ -155,9 +154,9 @@ namespace Sabresaurus.SabreSlice
                     Vector3 point1 = vertices[index1];
                     Vector3 point2 = vertices[index2];
                     Vector3 point3 = vertices[index3];
-                    Classification classification = Classifier.Classify(index1, index2, index3, classificationArray);
+                    TriangleClassification triangleClassification = Classifier.ClassifyTriangle(index1, index2, index3, classificationArray);
 
-                    if (classification == Classification.Straddle)
+                    if (triangleClassification == TriangleClassification.Straddle)
                     {
                         float classificationSum = (classificationArray[index1] + classificationArray[index2] + classificationArray[index3]);
 
@@ -275,10 +274,12 @@ namespace Sabresaurus.SabreSlice
                             // DRAW SPLIT LINE
 //                        if (showDebug)
                             {
-                                Gizmos.color = Color.red;
                                 // Untransformed
-                                Gizmos.DrawLine(newPointA, newPointB);
+//                                Gizmos.color = Color.red;
+//                                Gizmos.DrawLine(newPointA, newPointB);
+
                                 // Transformed
+                                Gizmos.color = Color.blue;
                                 Gizmos.DrawLine(newPointA + planeData.TransformedOffset, newPointB + planeData.TransformedOffset);
                             }
                         }
@@ -288,7 +289,7 @@ namespace Sabresaurus.SabreSlice
                         }
                     }
 
-                    if (classification == Classification.Straddle)
+                    if (triangleClassification == TriangleClassification.Straddle)
                     {
                         newTriangles[i * 3 + 0] = 0;
                         newTriangles[i * 3 + 1] = 0;
@@ -297,9 +298,9 @@ namespace Sabresaurus.SabreSlice
                 }
             }
 
-            float a = sourceMesh.bounds.size.x * 0.5f * (planeDatas[0].Inset);
-            float b = sourceMesh.bounds.size.x * 0.5f * (planeDatas[1].Inset);
-            float scale = (width - a - b) / (sourceMesh.bounds.size.x - a - b);
+            float a = sourceMesh.bounds.size.x * (planeDatas[0].Inset);
+            float b = sourceMesh.bounds.size.x * (planeDatas[1].Inset);
+            float scale = (size.x - a - b) / (sourceMesh.bounds.size.x - a - b);
 
             for (int v = 0; v < vertices.Length; v++)
             {

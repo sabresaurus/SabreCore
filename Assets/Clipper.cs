@@ -44,19 +44,29 @@ namespace Sabresaurus.SabreSlice
         }
         
         [SerializeField] private PlaneData planeData = new PlaneData();
+        [SerializeField] private Transform clipper = null;
+
+        public bool HasClipperTransform => clipper != null;
 
         public PlaneData PrimaryPlaneData
         {
             get => planeData;
             set => planeData = value;
         }
-       
-        private void Update()
+
+        public void Update()
         {
-            SliceMesh(sourceMesh);
+            if (clipper != null)
+            {
+                planeData.PointOnPlane = transform.InverseTransformPoint(clipper.position);
+                planeData.PlaneOrientation = transform.InverseTransformRotation(clipper.rotation);
+            }
+
+
+            ClipMesh(sourceMesh);
         }
 
-        void SliceMesh(Mesh sourceMesh)
+        void ClipMesh(Mesh sourceMesh)
         {
             if (!sourceMesh.isReadable)
             {
@@ -105,9 +115,9 @@ namespace Sabresaurus.SabreSlice
                 int index2 = triangles[i * 3 + 1];
                 int index3 = triangles[i * 3 + 2];
 
-                Classification classification = Classifier.Classify(index1, index2, index3, classificationArray);
+                TriangleClassification triangleClassification = Classifier.ClassifyTriangle(index1, index2, index3, classificationArray);
 
-                if (classification == Classification.Straddle)
+                if (triangleClassification == TriangleClassification.Straddle)
                 {
                     float classificationSum = (classificationArray[index1] + classificationArray[index2] + classificationArray[index3]);
 
@@ -212,7 +222,7 @@ namespace Sabresaurus.SabreSlice
                     }
                 }
 
-                if (classification != Classification.Front)
+                if (triangleClassification != TriangleClassification.Front) // Apply to both back and straddle
                 {
                     newTriangles[i * 3 + 0] = 0;
                     newTriangles[i * 3 + 1] = 0;

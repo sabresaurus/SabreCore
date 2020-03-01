@@ -9,6 +9,7 @@ namespace Sabresaurus.SabreSlice
     {
         protected virtual void OnSceneGUI()
         {
+            return;
             MeshSlicer castTarget = (MeshSlicer) target;
             Handles.matrix = castTarget.transform.localToWorldMatrix;
 

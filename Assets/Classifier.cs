@@ -2,7 +2,7 @@ using Unity.Collections;
 
 namespace Sabresaurus.SabreSlice
 {
-    public enum Classification
+    public enum TriangleClassification
     {
         Front,
         Straddle,
@@ -11,7 +11,7 @@ namespace Sabresaurus.SabreSlice
 
     public class Classifier
     {
-        public static Classification Classify(int index1, int index2, int index3, NativeArray<float> classificationArray)
+        public static TriangleClassification ClassifyTriangle(int index1, int index2, int index3, NativeArray<float> classificationArray)
         {
             int numberInFront = 0;
             int numberBehind = 0;
@@ -32,11 +32,11 @@ namespace Sabresaurus.SabreSlice
                 numberBehind++;
 
             if (numberInFront == 0) // None in front, all must be behind
-                return Classification.Back;
+                return TriangleClassification.Back;
             if (numberBehind == 0) // None behind, all must be in front
-                return Classification.Front;
+                return TriangleClassification.Front;
 
-            return Classification.Straddle;
+            return TriangleClassification.Straddle;
         }
     }
 }

@@ -10,6 +10,10 @@ namespace Sabresaurus.SabreSlice
         protected virtual void OnSceneGUI()
         {
             Clipper castTarget = (Clipper) target;
+            
+            if(castTarget.HasClipperTransform)
+                return;
+            
             Handles.matrix = castTarget.transform.localToWorldMatrix;
             Clipper.PlaneData planeData = castTarget.PrimaryPlaneData;
             if (EditorTools.activeToolType.Name == "RotateTool")
@@ -20,6 +24,7 @@ namespace Sabresaurus.SabreSlice
                 {
                     Undo.RecordObject(castTarget, "Change Look At Target Position");
                     planeData.PlaneOrientation = newRotation;
+                    castTarget.Update();
                 }
             }
             else
@@ -30,6 +35,7 @@ namespace Sabresaurus.SabreSlice
                 {
                     Undo.RecordObject(castTarget, "Change Look At Target Position");
                     planeData.PointOnPlane = newPosition;
+                    castTarget.Update();
                 }
             }
         }

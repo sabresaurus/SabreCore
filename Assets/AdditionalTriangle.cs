@@ -17,7 +17,7 @@ namespace Sabresaurus.SabreSlice
         public Vector3 NewVertexNormal1;
         public Vector3 NewVertexTangent1;
 
-        public bool Flipped;
+        public bool Flipped; // Is the winding order flipped?
     }
 
     public struct NewTriangleWith2NewVertex
@@ -34,27 +34,27 @@ namespace Sabresaurus.SabreSlice
         public Vector3 NewVertexNormal2;
         public Vector3 NewVertexTangent2;
 
-        public bool Flipped;
+        public bool Flipped; // Is the winding order flipped?
     }
 
-    public struct NewTriangleWith3NewVertex
-    {
-        public Vector3 NewVertexPosition1;
-        public Vector2 NewVertexUV1;
-        public Vector3 NewVertexNormal1;
-        public Vector3 NewVertexTangent1;
-
-        public Vector3 NewVertexPosition2;
-        public Vector2 NewVertexUV2;
-        public Vector3 NewVertexNormal2;
-        public Vector3 NewVertexTangent2;
-
-
-        public Vector3 NewVertexPosition3;
-        public Vector2 NewVertexUV3;
-        public Vector3 NewVertexNormal3;
-        public Vector3 NewVertexTangent3;
-
-        public bool Flipped;
-    }
+//    public struct NewTriangleWith3NewVertex
+//    {
+//        public Vector3 NewVertexPosition1;
+//        public Vector2 NewVertexUV1;
+//        public Vector3 NewVertexNormal1;
+//        public Vector3 NewVertexTangent1;
+//
+//        public Vector3 NewVertexPosition2;
+//        public Vector2 NewVertexUV2;
+//        public Vector3 NewVertexNormal2;
+//        public Vector3 NewVertexTangent2;
+//
+//
+//        public Vector3 NewVertexPosition3;
+//        public Vector2 NewVertexUV3;
+//        public Vector3 NewVertexNormal3;
+//        public Vector3 NewVertexTangent3;
+//
+//        public bool Flipped;
+//    }
 }
