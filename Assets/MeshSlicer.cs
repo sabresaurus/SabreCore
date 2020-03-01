@@ -19,6 +19,7 @@ namespace Sabresaurus.SabreSlice
             [SerializeField] private Vector3 planeEuler;
             [SerializeField, Range(0, 1)] private float inset = 0;
             [SerializeField] private float offset = 0;
+            [SerializeField] private int axisIndex = 0;
 
             public Vector3 PointOnPlane
             {
@@ -38,11 +39,18 @@ namespace Sabresaurus.SabreSlice
                 set => inset = value;
             }
 
+            public int AxisIndex
+            {
+                get => axisIndex;
+                set => axisIndex = value;
+            }
+            
             public float Offset
             {
                 get => offset;
                 set => offset = value;
             }
+            
             public Vector3 TransformedOffset => PlaneOrientation * Vector3.forward * offset;
 
             public Plane CalculatePlane()
@@ -55,6 +63,24 @@ namespace Sabresaurus.SabreSlice
                     normal = normal,
                     distance = -Vector3.Dot(normal, pointOnPlane)
                 };
+            }
+
+            public void Configure(int axisIndex, Vector3 size, Bounds sourceBounds, bool reverse)
+            {
+                this.axisIndex = axisIndex;
+                Vector3 direction = Vector3.zero;
+                direction[axisIndex] = reverse ? 1 : -1;
+
+                if (direction == Vector3.up || direction == Vector3.down)
+                {
+                    PlaneOrientation = Quaternion.LookRotation(direction, Vector3.right);    
+                }
+                else
+                {
+                    PlaneOrientation = Quaternion.LookRotation(direction, Vector3.up);
+                }
+                pointOnPlane = sourceBounds.size[axisIndex] * (-0.5f + 1f - inset) * direction;
+                offset = (size[axisIndex] - sourceBounds.size[axisIndex]) / 2f;
             }
         }
 
@@ -84,12 +110,11 @@ namespace Sabresaurus.SabreSlice
 
         private void Update()
         {
-            planeDatas[0].PlaneOrientation = Quaternion.Euler(0, 270, 0);
-            planeDatas[0].PointOnPlane = sourceMesh.bounds.size.x * (-0.5f + 1f - planeDatas[0].Inset) * Vector3.left;
-            planeDatas[0].Offset = (size.x - sourceMesh.bounds.size.x) / 2f;
-            planeDatas[1].PlaneOrientation = Quaternion.Euler(0, 90, 0);
-            planeDatas[1].PointOnPlane = sourceMesh.bounds.size.x * (-0.5f + 1f - planeDatas[1].Inset) * Vector3.right;
-            planeDatas[1].Offset = (size.x - sourceMesh.bounds.size.x) / 2f;
+//            planeDatas[0].Configure(0, size, sourceMesh.bounds.size, false);
+//            planeDatas[1].Configure(0, size, sourceMesh.bounds.size, true);
+            
+            planeDatas[0].Configure(1, size, sourceMesh.bounds, false);
+            planeDatas[1].Configure(1, size, sourceMesh.bounds, true);
         }
 
         void SliceMesh(Mesh sourceMesh)
@@ -108,7 +133,7 @@ namespace Sabresaurus.SabreSlice
             // Second copy so that we can modify triangles buffer while iterating through it
             int[] newTriangles = sourceMesh.triangles;
 
-
+            
             List<NewTriangleWith1NewVertex> additionalTrianglesWith1NewVertices = new List<NewTriangleWith1NewVertex>();
             List<NewTriangleWith2NewVertex> additionalTrianglesWith2NewVertices = new List<NewTriangleWith2NewVertex>();
 
@@ -298,9 +323,11 @@ namespace Sabresaurus.SabreSlice
                 }
             }
 
-            float a = sourceMesh.bounds.size.x * (planeDatas[0].Inset);
-            float b = sourceMesh.bounds.size.x * (planeDatas[1].Inset);
-            float scale = (size.x - a - b) / (sourceMesh.bounds.size.x - a - b);
+
+            int HACK_axisIndex = planeDatas[0].AxisIndex; // TODO: Replace
+            float a = sourceMesh.bounds.size[planeDatas[0].AxisIndex] * (planeDatas[0].Inset);
+            float b = sourceMesh.bounds.size[planeDatas[1].AxisIndex] * (planeDatas[1].Inset);
+            float scale = (size[HACK_axisIndex] - a - b) / (sourceMesh.bounds.size[HACK_axisIndex] - a - b);
 
             for (int v = 0; v < vertices.Length; v++)
             {
@@ -319,7 +346,7 @@ namespace Sabresaurus.SabreSlice
                 {
                     var vertex = vertices[v];
                     
-                    vertex.x *= scale;
+                    vertex[HACK_axisIndex] *= scale;
                     vertices[v] = vertex;
                 }
             }

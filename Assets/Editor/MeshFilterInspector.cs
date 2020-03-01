@@ -52,7 +52,7 @@ public class MeshFilterInspector : Editor
             GUILayout.Label("Colors: " + colors);
             GUIStyle style = new GUIStyle(GUI.skin.label);
             style.wordWrap = true;
-            GUILayout.Label("Bounds: " + bounds, style);
+            GUILayout.Label($"Bounds: Center: {bounds.center.x:0.#####}, {bounds.center.y:0.#####}, {bounds.center.z:0.#####} Extents: {bounds.extents.x:0.#####}, {bounds.extents.y:0.#####}, {bounds.extents.z:0.#####}", style);
         }
     }
 }
