@@ -1,4 +1,5 @@
 ﻿//#define SHOW_DEBUG_CLIPPING
+
 using System;
 using System.Collections.Generic;
 using Unity.Collections;
@@ -18,6 +19,8 @@ namespace Sabresaurus.NineSlicedMesh
 
         [SerializeField] private Vector3 size;
 
+        [SerializeField] private Vector3 scaleOffset = Vector3.zero;
+
 
         protected override void Reset()
         {
@@ -26,8 +29,7 @@ namespace Sabresaurus.NineSlicedMesh
             ResetSize();
         }
 
-        [ContextMenu("Reset Size")]
-        void ResetSize()
+        public void ResetSize()
         {
             size = sourceMesh.bounds.size;
         }
@@ -46,7 +48,7 @@ namespace Sabresaurus.NineSlicedMesh
         {
             SliceMesh(true);
 
-            if(showInsetPlanes)
+            if (showInsetPlanes)
             {
                 Gizmos.color = Color.blue;
                 // Draw the split planes
@@ -98,6 +100,9 @@ namespace Sabresaurus.NineSlicedMesh
         void SliceMeshOnAxis(Mesh activeMesh, bool gizmosPass, SlicerAxisData activeAxisData)
         {
             Gizmos.matrix = transform.localToWorldMatrix;
+
+            Vector3 axis = Vector3.zero;
+            axis[activeAxisData.AxisIndex] = 1;
 
             Vector3[] vertices = activeMesh.vertices;
             Vector2[] uv = activeMesh.uv;
@@ -208,14 +213,14 @@ namespace Sabresaurus.NineSlicedMesh
                             Vector3 newTangentB = Vector3.Lerp(tangents[triangles[i * 3 + isolatedIndex]],
                                 tangents[triangles[i * 3 + indexB]], interpolantB);
 
-#if SHOW_DEBUG_CLIPPING                            
+#if SHOW_DEBUG_CLIPPING
                             // ORIGINAL TRIANGLE
                             if (gizmosPass)
                             {
                                 Gizmos.color = Color.green;
                                 GizmoHelper.DrawTriangle(point1, point2, point3);
                             }
-#endif                            
+#endif
 
                             Vector3 transformedOffset = activeAxisData.GetTransformedOffset(planeIndex);
 
@@ -254,14 +259,14 @@ namespace Sabresaurus.NineSlicedMesh
                                     Flipped = false,
                                 });
 
-#if SHOW_DEBUG_CLIPPING                            
+#if SHOW_DEBUG_CLIPPING
                                 if (gizmosPass)
                                 {
                                     Gizmos.color = Color.blue;
                                     GizmoHelper.DrawTriangle(pointB, pointA, newPointA);
                                     GizmoHelper.DrawTriangle(pointB, newPointA, newPointB);
                                 }
-#endif                                
+#endif
                             }
 
                             if (classificationSum == 1 + 1 - 1 // Two in front
@@ -310,9 +315,12 @@ namespace Sabresaurus.NineSlicedMesh
                 }
             }
 
-            float sourceInset = sourceMesh.bounds.size[activeAxisData.AxisIndex] * (activeAxisData.TotalInsetProportion);
+            float sourceInset = sourceMesh.bounds.size[activeAxisData.AxisIndex] *
+                                (activeAxisData.TotalInsetProportion);
             float scale = (size[activeAxisData.AxisIndex] - sourceInset) /
                           (sourceMesh.bounds.size[activeAxisData.AxisIndex] - sourceInset);
+            scaleOffset = axis * (activeAxisData.GetInset(0) + (1f - activeAxisData.GetInset(1))) / 2f *
+                          sourceMesh.bounds.size[activeAxisData.AxisIndex];
 
             for (int v = 0; v < vertices.Length; v++)
             {
@@ -330,9 +338,10 @@ namespace Sabresaurus.NineSlicedMesh
                 {
                     var vertex = vertices[v];
 
-                    //vertex -= sourceMesh.bounds.center ;
+                    //scaleOffset = activeAxisData.GetInset(2) - activeAxisData.GetInset(1); 
+                    vertex -= scaleOffset;
                     vertex[activeAxisData.AxisIndex] *= scale;
-                    //vertex += sourceMesh.bounds.center ;
+                    vertex += scaleOffset;
                     vertices[v] = vertex;
                 }
             }
