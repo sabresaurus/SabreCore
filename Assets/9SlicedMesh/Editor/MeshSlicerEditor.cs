@@ -20,6 +20,8 @@ namespace Sabresaurus.NineSlicedMesh
                 foreach (var meshSlicer in meshSlicers)
                 {
                     meshSlicer.ResetSize();
+                    // Force Update() to get called again
+                    EditorApplication.QueuePlayerLoopUpdate();
                 }
             }
         }

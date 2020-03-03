@@ -29,17 +29,19 @@ namespace Sabresaurus.NineSlicedMesh
         public void ResetSize()
         {
             size = sourceMesh.bounds.size;
-            Update();
         }
 
         private void Update()
         {
-            for (int i = 0; i < 3; i++)
+            if (sourceMesh != null)
             {
-                axisDatas[i].Configure(i, size, sourceMesh.bounds);
-            }
+                for (int i = 0; i < 3; i++)
+                {
+                    axisDatas[i].Configure(i, size, sourceMesh.bounds);
+                }
 
-            SliceMesh(false);
+                SliceMesh(false);
+            }
         }
 
         private void OnDrawGizmosSelected()
@@ -72,10 +74,16 @@ namespace Sabresaurus.NineSlicedMesh
 
         private void OnValidate()
         {
-            // Make sure the specified size is not smaller than the fixed inset areas to avoid obvious mesh overlap errors
-            for (int i = 0; i < 3; i++)
+            if(sourceMesh != null)
             {
-                size[i] = Mathf.Max(size[i], sourceMesh.bounds.size[i] * axisDatas[i].TotalInsetProportion);
+                // Make sure the specified size is not smaller than the fixed inset areas to avoid obvious mesh overlap errors
+                for (int i = 0; i < 3; i++)
+                {
+                    if (axisDatas[i] != null)
+                    {
+                        size[i] = Mathf.Max(size[i], sourceMesh.bounds.size[i] * axisDatas[i].TotalInsetProportion);
+                    }
+                }
             }
         }
 
@@ -154,9 +162,6 @@ namespace Sabresaurus.NineSlicedMesh
                     int index2 = triangles[i * 3 + 1];
                     int index3 = triangles[i * 3 + 2];
 
-                    Vector3 point1 = vertices[index1];
-                    Vector3 point2 = vertices[index2];
-                    Vector3 point3 = vertices[index3];
                     TriangleClassification triangleClassification =
                         Classifier.ClassifyTriangle(index1, index2, index3, classificationArray);
 
@@ -215,6 +220,9 @@ namespace Sabresaurus.NineSlicedMesh
                             // ORIGINAL TRIANGLE
                             if (gizmosPass)
                             {
+                                Vector3 point1 = vertices[index1];
+                                Vector3 point2 = vertices[index2];
+                                Vector3 point3 = vertices[index3];
                                 Gizmos.color = Color.green;
                                 GizmoHelper.DrawTriangle(point1, point2, point3);
                             }
@@ -260,7 +268,7 @@ namespace Sabresaurus.NineSlicedMesh
 #if SHOW_DEBUG_CLIPPING
                                 if (gizmosPass)
                                 {
-                                    Gizmos.color = Color.blue;
+                                    Gizmos.color = Color.white;
                                     GizmoHelper.DrawTriangle(pointB, pointA, newPointA);
                                     GizmoHelper.DrawTriangle(pointB, newPointA, newPointB);
                                 }
