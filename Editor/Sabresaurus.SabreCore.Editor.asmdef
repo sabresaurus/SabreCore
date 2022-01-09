@@ -1,12 +1,14 @@
 {
-    "name": "Sabresaurus.9SlicedMesh",
+    "name": "NewAssembly",
+    "rootNamespace": "",
     "references": [
-        "GUID:2665a8d13d1b3f18800f46e256720795",
-        "GUID:d8b63aba1907145bea998dd612889d6b"
+        "GUID:2ce45076067931f4c89fa9b5cb4f1284"
     ],
-    "includePlatforms": [],
+    "includePlatforms": [
+        "Editor"
+    ],
     "excludePlatforms": [],
-    "allowUnsafeCode": true,
+    "allowUnsafeCode": false,
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,

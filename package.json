@@ -1,0 +1,16 @@
+{
+  "name": "com.sabresaurus.sabrecore",
+  "version": "1.0.0-preview.1",
+  "displayName": "Sabre Core",
+  "description": "Common features from Sabresaurus",
+  "unity": "2020.3",
+  "documentationUrl": "https://github.com/sabresaurus/SabreCore",
+  "changelogUrl": "https://github.com/sabresaurus/SabreCore/commits/main",
+  "author": {
+    "name": "sabresaurus",
+    "url": "https://github.com/sabresaurus"
+  },
+  "dependencies": {
+    "com.unity.mathematics": "1.2.1"
+  }
+}

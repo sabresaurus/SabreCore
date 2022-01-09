@@ -16,7 +16,7 @@ namespace Sabresaurus.NineSlicedMesh
             
             Handles.matrix = castTarget.transform.localToWorldMatrix;
             Clipper.PlaneData planeData = castTarget.PrimaryPlaneData;
-            if (EditorTools.activeToolType.Name == "RotateTool")
+            if (ToolManager.activeToolType.Name == "RotateTool")
             {
                 EditorGUI.BeginChangeCheck();
                 Quaternion newRotation = Handles.RotationHandle(planeData.PlaneOrientation, planeData.PointOnPlane);
