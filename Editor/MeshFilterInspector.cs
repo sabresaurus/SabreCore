@@ -20,9 +20,11 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 
+using System;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace Sabresaurus.SabreCore
 {
@@ -65,7 +67,7 @@ namespace Sabresaurus.SabreCore
             {
                 EditorGUI.indentLevel++;
 
-                meshFilterMeshEditor.OnInspectorGUI();
+                meshFilterMeshEditor?.OnInspectorGUI();
 
                 if (additionalMeshes.Any(item => item != null))
                 {
@@ -80,6 +82,12 @@ namespace Sabresaurus.SabreCore
             }
 
             EditorGUILayout.EndFoldoutHeaderGroup();
+        }
+
+        private void OnDestroy()
+        {
+            DestroyImmediate(meshFilterMeshEditor);
+            DestroyImmediate(meshRendererAdditionalStreamsEditor);
         }
     }
 }
