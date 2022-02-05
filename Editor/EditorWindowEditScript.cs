@@ -2,7 +2,6 @@
 using System.Reflection;
 using JetBrains.Annotations;
 using UnityEditor;
-using Object = UnityEngine.Object;
 
 namespace Sabresaurus.SabreCore
 {
