@@ -21,6 +21,7 @@
 //  SOFTWARE.
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -44,22 +45,40 @@ namespace Sabresaurus.SabreCore
         {
             DrawDefaultInspector();
 
-            Object[] meshes = new Object[targets.Length];
-            Object[] additionalMeshes = new Object[targets.Length];
+            List<Object> meshes = new List<Object>();
+            List<Object> additionalMeshes = new List<Object>();
+
+            bool anyMeshRenderers = false;
+            bool additionalMeshesMixed = false;
 
             for (int i = 0; i < targets.Length; i++)
             {
                 MeshFilter meshFilter = (MeshFilter) targets[i];
-                meshes[i] = meshFilter.sharedMesh;
+                if (meshFilter.sharedMesh != null)
+                {
+                    meshes.Add(meshFilter.sharedMesh);
+                }
 
                 if (meshFilter.TryGetComponent(out MeshRenderer meshRenderer))
                 {
-                    additionalMeshes[i] = meshRenderer.additionalVertexStreams;
+                    anyMeshRenderers = true;
+                    if (meshRenderer.additionalVertexStreams != null)
+                    {
+                        additionalMeshes.Add(meshRenderer.additionalVertexStreams);
+
+                        if (additionalMeshes.Count >= 2 && additionalMeshes[i] != additionalMeshes[i - 1])
+                        {
+                            additionalMeshesMixed = true;
+                        }
+                    }
                 }
             }
 
-            CreateCachedEditor(meshes, null, ref meshFilterMeshEditor);
-            CreateCachedEditor(additionalMeshes, null, ref meshRendererAdditionalStreamsEditor);
+            // TODO - This line has an issue if one element is null
+            CreateCachedEditor(meshes.ToArray(), null, ref meshFilterMeshEditor);
+
+            // TODO - This line has an issue if one element is null
+            CreateCachedEditor(additionalMeshes.ToArray(), null, ref meshRendererAdditionalStreamsEditor);
 
             DisplayMeshDetails = EditorGUILayout.BeginFoldoutHeaderGroup(DisplayMeshDetails, "Mesh Details");
 
@@ -69,11 +88,37 @@ namespace Sabresaurus.SabreCore
 
                 meshFilterMeshEditor?.OnInspectorGUI();
 
-                if (additionalMeshes.Any(item => item != null))
+                if (anyMeshRenderers)
                 {
                     GUI.enabled = true;
                     EditorGUILayout.Space(4f, true);
-                    GUILayout.Label("Additional Vertex Streams (MeshRenderer)", EditorStyles.boldLabel);
+                    bool wasMixed = EditorGUI.showMixedValue;
+
+                    EditorGUI.showMixedValue = additionalMeshesMixed;
+
+                    EditorGUI.BeginChangeCheck();
+                    Object firstAdditionalMesh = additionalMeshes.Count > 0 ? additionalMeshes[0] : null;
+                    Mesh newValue = (Mesh) EditorGUILayout.ObjectField(new GUIContent("Additional Streams", "MeshRenderer.additionalVertexStreams"), firstAdditionalMesh, typeof(Mesh), false);
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        for (int i = 0; i < targets.Length; i++)
+                        {
+                            MeshFilter meshFilter = (MeshFilter) targets[i];
+                            meshes[i] = meshFilter.sharedMesh;
+                    
+                            if (meshFilter.TryGetComponent(out MeshRenderer meshRenderer))
+                            {
+                                Undo.RecordObject(meshRenderer, "Undo Inspector");
+                                meshRenderer.additionalVertexStreams = newValue;
+                            }
+                        }
+                    }
+
+                    EditorGUI.showMixedValue = wasMixed;
+                }
+
+                if (additionalMeshes.Any(item => item != null))
+                {
                     EditorGUILayout.Space(2f, true);
                     meshRendererAdditionalStreamsEditor.OnInspectorGUI();
                 }
