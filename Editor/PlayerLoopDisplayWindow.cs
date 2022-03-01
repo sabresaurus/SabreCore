@@ -89,7 +89,7 @@ namespace Sabresaurus.SabreCore
 
                 using(new EditorGUI.DisabledScope(!typesToMonoScripts.ContainsKey(system.type)))
                 {
-                    if (GUI.Button(buttonRect, system.type.Name))
+                    if (GUI.Button(buttonRect, new GUIContent(system.type.Name, system.type.FullName)))
                     {
                         AssetDatabase.OpenAsset(typesToMonoScripts[system.type]);
                     }
