@@ -9,7 +9,8 @@ namespace Sabresaurus.SabreCore
     // Special thanks to https://medium.com/@thebeardphantom/unity-2018-and-playerloop-5c46a12a677
     public class PlayerLoopDisplayWindow : EditorWindow
     {
-        Vector2 scrollPosition = Vector2.zero;
+        private Vector2 scrollPosition = Vector2.zero;
+        private GUIStyle buttonStyle;
 
         private readonly Dictionary<Type, MonoScript> typesToMonoScripts = new Dictionary<Type, MonoScript>();
 
@@ -25,7 +26,6 @@ namespace Sabresaurus.SabreCore
                     typesToMonoScripts[type] = monoScript;
                 }
             }
-
         }
 
         [MenuItem("Window/Player Loop")]
@@ -36,6 +36,11 @@ namespace Sabresaurus.SabreCore
 
         private void OnGUI()
         {
+            buttonStyle = new GUIStyle(GUI.skin.button)
+            {
+                alignment = TextAnchor.MiddleLeft
+            };
+
             if (GUILayout.Button("Restore Default Loop"))
             {
                 PlayerLoop.SetPlayerLoop(PlayerLoop.GetDefaultPlayerLoop());
@@ -73,7 +78,7 @@ namespace Sabresaurus.SabreCore
                     float width = rect.width;
                     Rect buttonRect = rect;
                     buttonRect.xMax = width * 0.7f;
-                    GUI.Button(buttonRect, "Root");
+                    GUI.Button(buttonRect, "Root", buttonStyle);
                 }
             }
             else if (system.type != null)
@@ -87,9 +92,9 @@ namespace Sabresaurus.SabreCore
                 Rect labelRect = buttonRect;
                 labelRect.x = width * 0.7f;
 
-                using(new EditorGUI.DisabledScope(!typesToMonoScripts.ContainsKey(system.type)))
+                using (new EditorGUI.DisabledScope(!typesToMonoScripts.ContainsKey(system.type)))
                 {
-                    if (GUI.Button(buttonRect, new GUIContent(system.type.Name, system.type.FullName)))
+                    if (GUI.Button(buttonRect, new GUIContent(system.type.Name, system.type.FullName), buttonStyle))
                     {
                         AssetDatabase.OpenAsset(typesToMonoScripts[system.type]);
                     }
