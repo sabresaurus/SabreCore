@@ -50,6 +50,15 @@ namespace Sabresaurus.SabreCore
             PlayerLoop.SetPlayerLoop(loop);
             return wasRemoved;
         }
+        
+        public static bool DetachSystem<TWrapper>(PlayerLoopSystem.UpdateFunction customUpdate)
+        {
+            PlayerLoopSystem loop = PlayerLoop.GetCurrentPlayerLoop();
+
+            PlayerLoopSystem systemToRemove = loop.GetSystemByTypeAndMethod<TWrapper>(customUpdate);
+
+            return DetachSystem(systemToRemove);
+        }
 
         public static PlayerLoopSystem GetSystemByType<T>()
         {

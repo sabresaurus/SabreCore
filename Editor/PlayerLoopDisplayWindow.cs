@@ -96,7 +96,10 @@ namespace Sabresaurus.SabreCore
                 rect.xMin += depth * 10;
 
                 Rect buttonRect = rect;
-                buttonRect.xMax = width * 0.7f;
+                buttonRect.xMax = width * 0.7f - 70;
+                Rect buttonRect2 = rect;
+                buttonRect2.xMin = buttonRect.xMax;
+                buttonRect2.xMax = width * 0.7f;
                 Rect labelRect = buttonRect;
                 labelRect.x = width * 0.7f;
 
@@ -125,6 +128,11 @@ namespace Sabresaurus.SabreCore
                     {
                         AssetDatabase.OpenAsset(typesToMonoScripts[activeType]);
                     }
+                }
+
+                if (GUI.Button(buttonRect2, "Remove"))
+                {
+                    PlayerLoopHelper.DetachSystem(system);
                 }
 
                 if (system.loopConditionFunction != (IntPtr) 0)
