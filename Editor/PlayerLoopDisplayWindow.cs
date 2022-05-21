@@ -14,6 +14,12 @@ namespace Sabresaurus.SabreCore
 
         private readonly Dictionary<Type, MonoScript> typesToMonoScripts = new Dictionary<Type, MonoScript>();
 
+        private static bool HideNative
+        {
+            get => EditorPrefs.GetBool(nameof(PlayerLoopDisplayWindow) + "." + nameof(HideNative));
+            set => EditorPrefs.SetBool(nameof(PlayerLoopDisplayWindow) + "." + nameof(HideNative), value);
+        }
+
         private void OnEnable()
         {
             MonoScript[] monoScripts = Resources.FindObjectsOfTypeAll<MonoScript>();
@@ -40,6 +46,8 @@ namespace Sabresaurus.SabreCore
             {
                 alignment = TextAnchor.MiddleLeft
             };
+
+            HideNative = EditorGUILayout.Toggle("Hide Native", HideNative);
 
             if (GUILayout.Button("Restore Default Loop"))
             {
@@ -81,7 +89,7 @@ namespace Sabresaurus.SabreCore
                     GUI.Button(buttonRect, "Root", buttonStyle);
                 }
             }
-            else if (system.type != null)
+            else if (system.type != null && !(system.updateFunction != (IntPtr) 0 && HideNative))
             {
                 Rect rect = GUILayoutUtility.GetRect(GUIContent.none, GUI.skin.button);
                 float width = rect.width;
@@ -92,11 +100,30 @@ namespace Sabresaurus.SabreCore
                 Rect labelRect = buttonRect;
                 labelRect.x = width * 0.7f;
 
-                using (new EditorGUI.DisabledScope(!typesToMonoScripts.ContainsKey(system.type)))
+                var activeType = system.type;
+                if (system.updateDelegate != null)
                 {
-                    if (GUI.Button(buttonRect, new GUIContent(system.type.Name, system.type.FullName), buttonStyle))
+                    activeType = system.updateDelegate.Method.DeclaringType;
+                }
+
+                using (new EditorGUI.DisabledScope(!typesToMonoScripts.ContainsKey(activeType)))
+                {
+                    string buttonLabel = activeType.Name;
+
+                    if (system.updateDelegate != null)
                     {
-                        AssetDatabase.OpenAsset(typesToMonoScripts[system.type]);
+                        buttonLabel += $".{system.updateDelegate.Method.Name}";
+
+                        if (system.type != activeType)
+                        {
+                            // System type is not the same as the declaring type of the method, so make that visible
+                            buttonLabel += $" ({system.type.Name})";
+                        }
+                    }
+
+                    if (GUI.Button(buttonRect, new GUIContent(buttonLabel, system.type.FullName), buttonStyle))
+                    {
+                        AssetDatabase.OpenAsset(typesToMonoScripts[activeType]);
                     }
                 }
 

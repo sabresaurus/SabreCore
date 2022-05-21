@@ -3,48 +3,118 @@ using UnityEngine.LowLevel;
 
 namespace Sabresaurus.SabreCore
 {
+    /// <summary>
+    /// Provides utilities to add, remove and fetch systems from Unity's recursive PlayerLoop structure
+    ///
+    /// Note that the simple APIs are easy to use but if you are doing multiple changes to the player loop you should
+    /// consider the advanced APIs as it may be more performant than repeatedly fetching and writing the player loop 
+    /// </summary>
     public static class PlayerLoopHelper
     {
-        public static PlayerLoopSystem GetSystem<T>(this PlayerLoopSystem system)
+        #region Simple API
+
+        public static PlayerLoopSystem AttachSystem<TParent>(PlayerLoopSystem.UpdateFunction customUpdate)
+        {
+            PlayerLoopSystem loop = PlayerLoop.GetCurrentPlayerLoop();
+
+            PlayerLoopSystem newSystem = new PlayerLoopSystem
+            {
+                updateDelegate = customUpdate,
+                type = customUpdate.Method.DeclaringType
+            };
+            AddSystemToMatchedParent<TParent>(ref loop, newSystem);
+            PlayerLoop.SetPlayerLoop(loop);
+
+            return newSystem;
+        }
+        
+        public static PlayerLoopSystem AttachSystem<TParent, TWrapper>(PlayerLoopSystem.UpdateFunction customUpdate)
+        {
+            PlayerLoopSystem loop = PlayerLoop.GetCurrentPlayerLoop();
+
+            PlayerLoopSystem newSystem = new PlayerLoopSystem
+            {
+                updateDelegate = customUpdate,
+                type = typeof(TWrapper)
+            };
+            AddSystemToMatchedParent<TParent>(ref loop, newSystem);
+            PlayerLoop.SetPlayerLoop(loop);
+
+            return newSystem;
+        }
+
+        public static bool DetachSystem(PlayerLoopSystem systemToRemove)
+        {
+            PlayerLoopSystem loop = PlayerLoop.GetCurrentPlayerLoop();
+            bool wasRemoved = RemoveSystem(ref loop, systemToRemove);
+            PlayerLoop.SetPlayerLoop(loop);
+            return wasRemoved;
+        }
+
+        public static PlayerLoopSystem GetSystemByType<T>()
+        {
+            PlayerLoopSystem loop = PlayerLoop.GetCurrentPlayerLoop();
+            return GetSystemByType<T>(loop);
+        }
+
+        public static PlayerLoopSystem GetSystemByTypeAndMethod<T>(PlayerLoopSystem.UpdateFunction customUpdate)
+        {
+            PlayerLoopSystem loop = PlayerLoop.GetCurrentPlayerLoop();
+            return GetSystemByTypeAndMethod<T>(loop, customUpdate);
+        }
+        #endregion
+
+        #region Advanced API
+
+        public static bool EqualsSystem(this PlayerLoopSystem a, PlayerLoopSystem b)
+        {
+            return a.type == b.type && a.updateDelegate == b.updateDelegate && a.updateFunction == b.updateFunction && a.loopConditionFunction == b.loopConditionFunction;
+        }
+
+        public static PlayerLoopSystem GetSystemByType<T>(this PlayerLoopSystem system)
         {
             if (system.type == typeof(T))
             {
                 return system;
             }
 
-            foreach (var subSystem in system.subSystemList)
+            if(system.subSystemList != null)
             {
-                var match = subSystem.GetSystem<T>();
-
-                if (match.type == typeof(T))
+                foreach (PlayerLoopSystem subSystem in system.subSystemList)
                 {
-                    return match;
+                    PlayerLoopSystem match = subSystem.GetSystemByType<T>();
+
+                    if (match.type == typeof(T))
+                    {
+                        return match;
+                    }
                 }
             }
 
             return default;
         }
-
-        public static void GetSystem<T>(this PlayerLoopSystem system, out PlayerLoopSystem matched)
+        
+        public static PlayerLoopSystem GetSystemByTypeAndMethod<T>(this PlayerLoopSystem system, PlayerLoopSystem.UpdateFunction customUpdate)
         {
-            if (system.type == typeof(T))
+            if (system.type == typeof(T) && system.updateDelegate == customUpdate)
             {
-                matched = system;
-                return;
+                return system;
             }
 
-            foreach (var subSystem in system.subSystemList)
+            if(system.subSystemList != null)
             {
-                var match = subSystem.GetSystem<T>();
-
-                if (match.type == typeof(T))
+                foreach (PlayerLoopSystem subSystem in system.subSystemList)
                 {
-                    matched = match;
-                    return;
+                    PlayerLoopSystem match = subSystem.GetSystemByTypeAndMethod<T>(customUpdate);
+
+                    if (match.type == typeof(T) && match.updateDelegate == customUpdate)
+                    {
+                        return match;
+                    }
                 }
             }
 
-            matched = default;
+            return default;
         }
 
         public static void AddSystemToMatchedParent<TParent>(ref PlayerLoopSystem system, PlayerLoopSystem newSystem)
@@ -55,7 +125,7 @@ namespace Sabresaurus.SabreCore
             }
             else if (system.subSystemList != null)
             {
-                for (var index = 0; index < system.subSystemList.Length; index++)
+                for (int index = 0; index < system.subSystemList.Length; index++)
                 {
                     AddSystemToMatchedParent<TParent>(ref system.subSystemList[index], newSystem);
                 }
@@ -69,7 +139,7 @@ namespace Sabresaurus.SabreCore
             parent.subSystemList[parent.subSystemList.Length - 1] = newSystem;
         }
 
-        public static void RemoveSystem(ref PlayerLoopSystem system, PlayerLoopSystem systemToRemove)
+        public static bool RemoveSystem(ref PlayerLoopSystem system, PlayerLoopSystem systemToRemove)
         {
             if (system.subSystemList != null)
             {
@@ -77,7 +147,7 @@ namespace Sabresaurus.SabreCore
 
                 for (int i = 0; i < system.subSystemList.Length; i++)
                 {
-                    if (system.subSystemList[i].type == systemToRemove.type)
+                    if (system.subSystemList[i].EqualsSystem(systemToRemove))
                     {
                         contained = true;
                         break;
@@ -91,7 +161,7 @@ namespace Sabresaurus.SabreCore
                     int index = 0;
                     for (int i = 0; i < system.subSystemList.Length; i++)
                     {
-                        if (system.subSystemList[i].type != systemToRemove.type)
+                        if (!system.subSystemList[i].EqualsSystem(systemToRemove))
                         {
                             subSystemList[index] = system.subSystemList[i];
                             index++;
@@ -99,15 +169,22 @@ namespace Sabresaurus.SabreCore
                     }
 
                     system.subSystemList = subSystemList;
-                    return;
+                    return true;
                 }
 
 
-                for (var index = 0; index < system.subSystemList.Length; index++)
+                for (int index = 0; index < system.subSystemList.Length; index++)
                 {
-                    RemoveSystem(ref system.subSystemList[index], systemToRemove);
+                    if (RemoveSystem(ref system.subSystemList[index], systemToRemove))
+                    {
+                        return true;
+                    }
                 }
             }
+
+            return false;
         }
+
+        #endregion
     }
 }
